@@ -1,0 +1,205 @@
+= Project laboratory log
+
+== 1st week
+
+I'm trying to find some documentation on dm-mirror. First, it's a Linux kernel
+module and it's part of the vanilla kernel. It was already available on my
+system:
+
+----
+$ /sbin/modinfo dm-mirror
+filename:       /lib/modules/2.6.35-fw2/kernel/drivers/md/dm-mirror.ko
+license:        GPL
+author:         Joe Thornber
+description:    device-mapper mirror target
+srcversion:     AC2B91EB6F0EF6E46524514
+depends:        dm-region-hash,dm-mod,dm-log
+vermagic:       2.6.35-fw2 SMP preempt mod_unload modversions ELAN 
+----
+
+The first hit for "dm-mirror" on Google was a bugreport on the device-mapper
+development mailing list, so I guess it does not have a separate homepage. The
+device-mapper project is about the userspace part. It's homepage is
+http://sourceware.org/dm/, but that has been recently merged to the lvm2
+project: http://sources.redhat.com/lvm2/.
+
+Digging further the search result, I found a
+http://www.tldp.org/HOWTO/LVM-HOWTO/[HOWTO on TLDP] from 2006, which looks like
+a good initial overview in this area, even if it may be a bit outdated. At
+least it http://www.tldp.org/HOWTO/LVM-HOWTO/anatomy.html[explains] the various
+PV/VG/LV/FS concepts with a nice asciiart.
+
+Regarding motivation, I found this page:
+http://rhn.redhat.com/errata/RHBA-2009-0967.html, it's clear that lvm2 has many
+areas where it can be improved. ;)
+
+I'm not sure, but maybe the lvm2 is a generic package and the real lvm-based
+raid userspace support is provided by dmraid:
+http://people.redhat.com/heinzm/sw/dmraid/
+
+Finally I found step-by-step mirror-specific LVM howto:
+http://www.tcpdump.com/kb/os/linux/lvm-mirroring/intro.html.
+
+Using that, I did the followings to set up a test LVM mirror in vmware:
+
+I created a virtual machine: 4 physical disks:
+
+----
+# fdisk -l 2>/dev/null|grep ^Disk.*MB
+Disk /dev/sda: 8589 MB, 8589934592 bytes
+Disk /dev/sdb: 1073 MB, 1073741824 bytes
+Disk /dev/sdc: 1073 MB, 1073741824 bytes
+Disk /dev/sdd: 1073 MB, 1073741824 bytes
+----
+
+I installed a Frugalware Linux 1.3 base system (kernel 2.6.35) on the first one
+(sda1, using the whole disk), this root filesystem is a normal ext4 partiton
+
+I installed the lvm2 package, created PV-s on the other 3 disks:
+
+----
+# pvcreate /dev/sdb /dev/sdc /dev/sdd
+  Physical volume "/dev/sdb" successfully created
+  Physical volume "/dev/sdc" successfully created
+  Physical volume "/dev/sdd" successfully created
+----
+
+Then I created the VG:
+
+----
+# vgcreate myvg /dev/sdb                  
+  /proc/devices: No entry for device-mapper found
+  Volume group "myvg" successfully created
+# vgextend myvg /dev/sdc
+  /proc/devices: No entry for device-mapper found
+  Volume group "myvg" successfully extended
+# vgextend myvg /dev/sdd
+  /proc/devices: No entry for device-mapper found
+  Volume group "myvg" successfully extended
+----
+
+I eliminated the warning my loading the dm-mirror module:
+
+----
+# modprobe dm-mirror
+# vgreduce myvg /dev/sdd
+  Removed "/dev/sdd" from volume group "myvg"
+# vgextend myvg /dev/sdd
+  Volume group "myvg" successfully extended
+----
+
+Let's see the PV and VG status before creating an LV:
+
+----
+# pvs
+  PV         VG     Fmt  Attr PSize    PFree   
+  /dev/sdb   myvg-b lvm2 a-   1020.00m 1020.00m
+  /dev/sdc   myvg-c lvm2 a-   1020.00m 1020.00m
+  /dev/sdd   myvg-d lvm2 a-   1020.00m 1020.00m
+# vgs
+  VG     #PV #LV #SN Attr   VSize    VFree   
+  myvg-b   1   0   0 wz--n- 1020.00m 1020.00m
+  myvg-c   1   0   0 wz--n- 1020.00m 1020.00m
+  myvg-d   1   0   0 wz--n- 1020.00m 1020.00m
+----
+
+I created the lvm mirror (the only real difference to a normal LV is the -m 1
+option):
+
+----
+# lvcreate -L 900M -n mymirror -m 1 myvg 
+  Logical volume "mymirror" created
+----
+
+Now let's see the status again:
+
+----
+# pvs
+  PV         VG   Fmt  Attr PSize    PFree   
+  /dev/sdb   myvg lvm2 a-   1020.00m  120.00m
+  /dev/sdc   myvg lvm2 a-   1020.00m  120.00m
+  /dev/sdd   myvg lvm2 a-   1020.00m 1016.00m
+# vgs
+  VG   #PV #LV #SN Attr   VSize VFree
+  myvg   3   1   0 wz--n- 2.99g 1.23g
+# lvs
+  LV       VG   Attr   LSize   Origin Snap%  Move Log           Copy%  Convert
+  mymirror myvg mwi-a- 900.00m                    mymirror_mlog 100.00        
+----
+
+- LVS can even show which part of the mirror (one and the other side + log
+  device) is located on which device:
+
+----
+# lvs -a -o +devices
+  LV                  VG   Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                  
+  mymirror            myvg mwi-a- 900.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg iwi-ao 900.00m                                                 /dev/sdb(0)                              
+  [mymirror_mimage_1] myvg iwi-ao 900.00m                                                 /dev/sdc(0)                              
+  [mymirror_mlog]     myvg lwi-ao   4.00m                                                 /dev/sdd(0)     
+----
+
+The device nodes are created as well:
+
+----
+# ls /dev/mapper
+control  myvg-mymirror  myvg-mymirror_mimage_0  myvg-mymirror_mimage_1  myvg-mymirror_mlog
+----
+
+Finally I did the usual format/mount/check-free-space:
+
+----
+# mkfs.ext4 /dev/mapper/myvg-mymirror
+mke2fs 1.41.12 (17-May-2010)
+Filesystem label=
+OS type: Linux
+Block size=4096 (log=2)
+Fragment size=4096 (log=2)
+Stride=0 blocks, Stripe width=0 blocks
+57600 inodes, 230400 blocks
+11520 blocks (5.00%) reserved for the super user
+First data block=0
+Maximum filesystem blocks=239075328
+8 block groups
+32768 blocks per group, 32768 fragments per group
+7200 inodes per group
+Superblock backups stored on blocks: 
+        32768, 98304, 163840, 229376
+
+Writing inode tables: done                            
+Creating journal (4096 blocks): done
+Writing superblocks and filesystem accounting information: done
+
+This filesystem will be automatically checked every 23 mounts or
+180 days, whichever comes first.  Use tune2fs -c or -i to override.
+# mkdir /mnt/mirror
+# mount /dev/mapper/myvg-mymirror /mnt/mirror
+# df -h
+Filesystem            Size  Used Avail Use% Mounted on
+/dev/sda1             7.9G  843M  6.7G  12% /
+/dev/mapper/myvg-mymirror
+                      886M   18M  824M   3% /mnt/mirror
+----
+
+Questions / TODOs:
+
+- The log device is not redundant, is that expected?
+
+Looks like that wasn't supported for a long time, the changelog says:
+
+-----
+Version 2.02.63 - 14th April 2010
+  (...)
+  Add ability to create mirrored logs for mirror LVs.
+  (...)
+----
+
+- Gabor said that the current read strategy is an RR-based algorithm, I need to
+  find out how to verify that.
+
+- Is there anything fundamentally wrong in the steps I used for creating a dm-mirror?
+
+- What would be the goals for the end of the semester? A simple goal I can
+  think of is to first verify that currently one can't specify which PV is the
+  preferred one when reading from dm-mirrors and if that's true, implement a way
+  to be able to do so.
