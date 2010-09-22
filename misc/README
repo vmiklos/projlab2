@@ -370,6 +370,9 @@ my changes? For now I just created a local git repo, but:
 - Is there a git repo for the RHEL kernel I can clone? Or is it ok that I just
   create my own repo and once a feature is ready, we can squash all commits
   from that repo to a single patch, like the other huge patches in the kernel
-  SRPM?
+  SRPM? (And even if that's the case, I found the git repo of Fedora's kernel
+  at git://pkgs.fedoraproject.org/kernel, but I did not found somethething
+  similar for RHEL - is it the best if I just stick to the kernel SRPM I
+  downloaded today?)
 - Where should I share my code? Is it OK if I push it to a public hosting site
   like gitorious.org or do you have a preference?
