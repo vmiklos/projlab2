@@ -203,3 +203,173 @@ Version 2.02.63 - 14th April 2010
   think of is to first verify that currently one can't specify which PV is the
   preferred one when reading from dm-mirrors and if that's true, implement a way
   to be able to do so.
+
+== 2st week
+
+Bookmarks from last week:
+
+- http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/5/html-single/Cluster_Logical_Volume_Manager/index.html#mirrored_volumes
+- http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/5/html-single/Cluster_Logical_Volume_Manager/index.html#LV_create
+
+== Part1: Installing RHEL, building dm-mirror
+
+First I installed a RHEL Server 5.5 in VMware. (Nothing special, I disabled the
+graphical part and enabled all development-related packages.) After
+installation, my goal was to build the dm-mirror kernel module, so that I can
+modify it. I did the followings:
+
+----
+$ cd ~
+$ mkdir -p rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+$ echo '%_topdir %(echo $HOME)/rpmbuild' > .rpmmacros
+$ curl -I ftp://ftp.redhat.com/redhat/linux/enterprise/5Server/en/os/SRPMS/kernel-2.6.18-194.11.4.el5.src.rpm
+Last-Modified: Mon, 20 Sep 2010 09:21:47 GMT
+(...)
+$ wget ftp://ftp.redhat.com/redhat/linux/enterprise/5Server/en/os/SRPMS/kernel-2.6.18-194.11.4.el5.src.rpm
+$ rpm -Uvh kernel-2.6.18-194.11.4.el5.src.rpm 2>&1 | grep -v mockb
+----
+
+To unpack and prepare (patch) the sources:
+
+----
+$ cd ~/rpmbuild/SPECS
+$ rpmbuild -bp --target=`uname -m` kernel-2.6.spec 2> prep-err.log | tee prep-out.log
+----
+
+To build the dm-mirror module (the symvers part is necessary otherwise the
+kernel will become tainted when the module is loaded):
+
+----
+$ cd ~/rpmbuild/BUILD/kernel-2.6.18/linux-2.6.18.i686
+$ perl -p -i -e "s/^EXTRAVERSION.*/EXTRAVERSION = -194.el5/" Makefile
+
+$ cp /boot/symvers-2.6.18-194.el5.gz .
+$ gunzip symvers-2.6.18-194.el5.gz
+$ mv symvers-2.6.18-194.el5 Module.symvers
+
+$ make prepare
+$ make modules_prepare
+$ make M=drivers/md
+# cp drivers/md/*.ko /lib/modules/2.6.18-194.el5/extra
+# depmod -a
+----
+
+Only the last 3 commands has to be executed after each source code
+modification.
+
+Reloading the module can't be done without stopping the lvm mirror first:
+
+----
+# lvchange -a n myvg/mymirror
+# rmmod dm-mirror
+# modprobe dm-mirror
+# lvchange -a y myvg/mymirror
+----
+
+I tried adding a sample modification:
+
+- installed Git from EPEL
+- added sources files under drivers/md to git
+- added a debug printf to the init function of the dm_mirror module:
+
+----
+diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
+index 23c1d65..70cb224 100644
+--- a/drivers/md/dm-raid1.c
++++ b/drivers/md/dm-raid1.c
+@@ -1936,6 +1936,8 @@ static int __init dm_mirror_init(void)
+ {
+        int r;
+ 
++       printk("debug, dm-mirror init\n");
++
+        _dm_raid1_read_record_cache = kmem_cache_create("bio_map_info",
+                                sizeof(struct bio_map_info), 0, 0, NULL, NULL);
+        if (!_dm_raid1_read_record_cache) {
+----
+
+And yes, after building, installing and reloading the module, the string
+appeared in dmesg. :)
+
+Used documentation:
+
+- http://fedoraproject.org/wiki/EPEL/FAQ#howtouse
+- http://wiki.centos.org/HowTos/BuildingKernelModules
+
+== Part 2: creating the LVM mirror
+
+This was not necessary, the LVM mirror I created last week was recognized
+automatically. (The mirror uses sdb, sdc and sdd, the system is on sda, so I
+just the contents of sda during the installation of RHEL.)
+
+== Part 3: more documentation, questions
+
+So after setting up the new build environment, I looked at the documentation
+links Ivan provided.
+
+I read the following pages:
+
+- http://sources.redhat.com/lvm2/wiki/FeatureRequests/dm/mirroring
+
+My note: This list is a bit confusing, it's not exactly clear what's
+implemented and what is not. "Ability to handle device failures" is, not, sure
+about the rest.
+
+- http://sources.redhat.com/lvm2/wiki/MirrorDesignV1
+
+Most important infos:
+
+- state: clean, dirty (written and not yet synced), not-in-sync (the mirror device failed)
+- current algorithm: round-robin - change device after every 128 requests
+- log: can be different for each LV: core and device implementations
+- trade-offs:
+
+  * core (fast write, slow startup) vs device (slow write, fast startup)
+  * region size: big (small log, lot of data to recover) vs small (large log, small amount of data to recover)
+
+- handling failures:
+
+  * reads: just try an other device
+  * write: raise an event, then the userspace 'dmeventd' can handle them
+
+My note: so the read algorithm is hardwired, but the log one can be configured
+for each LV, something similar could be done for read algorithm as well to make
+it configurable. If I remember correctly, Gabor was referring to make this
+configurable at a global level via sysctl. That has the benefit of not changing
+the LVM metadata, I guess.
+
+Reading the code a bit, it turns out that a set of mirrors is stored in the
+'mirror_set' struct and that has an array of 'mirrors' and a 'default_mirror'
+pointer. So the code is already aware that from the N devices there is a
+default one, just it's not possible to always read from there.
+
+- http://sources.redhat.com/lvm2/wiki/MirrorDesignV2-discussion
+
+This one is a bit confusing as well, as far as I see for example the "Ability
+to have at least two log devices to avoid single point of log device failure.
+The log devices can be used in replicated mode or hot/spare standby mode."
+problem is already solved. (See 1st week, in LVM2 version 2.02.63.)
+
+Other than that, I think the features mentioned here would be nice, just need
+to check what is implemented and what is not.
+
+== Summary
+
+This week I spent time on creating the development environment and
+understanding current issues of dm-mirror. If that's OK with Ivan, that next
+week (as a first task) I would try to add support of changing the read method
+globally (via sysctl) so the user could choose between the current 'RR' method
+and a new 'always read from the default mirror' one. Once this is completed, a
+second step could be to turns this global setting a to per-LV setting, like one
+can use '--corelog' when creating mirrored LV's to use an in-memory log device
+instead of a physical one. Does this sound like a good direction?
+
+Other question: in case I start the actual coding, how should I track / share
+my changes? For now I just created a local git repo, but:
+
+- Is there a git repo for the RHEL kernel I can clone? Or is it ok that I just
+  create my own repo and once a feature is ready, we can squash all commits
+  from that repo to a single patch, like the other huge patches in the kernel
+  SRPM?
+- Where should I share my code? Is it OK if I push it to a public hosting site
+  like gitorious.org or do you have a preference?
