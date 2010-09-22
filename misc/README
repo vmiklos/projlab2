@@ -211,7 +211,7 @@ Bookmarks from last week:
 - http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/5/html-single/Cluster_Logical_Volume_Manager/index.html#mirrored_volumes
 - http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/5/html-single/Cluster_Logical_Volume_Manager/index.html#LV_create
 
-== Part1: Installing RHEL, building dm-mirror
+=== Part1: Installing RHEL, building dm-mirror
 
 First I installed a RHEL Server 5.5 in VMware. (Nothing special, I disabled the
 graphical part and enabled all development-related packages.) After
@@ -296,13 +296,13 @@ Used documentation:
 - http://fedoraproject.org/wiki/EPEL/FAQ#howtouse
 - http://wiki.centos.org/HowTos/BuildingKernelModules
 
-== Part 2: creating the LVM mirror
+=== Part 2: creating the LVM mirror
 
 This was not necessary, the LVM mirror I created last week was recognized
 automatically. (The mirror uses sdb, sdc and sdd, the system is on sda, so I
 just the contents of sda during the installation of RHEL.)
 
-== Part 3: more documentation, questions
+=== Part 3: more documentation, questions
 
 So after setting up the new build environment, I looked at the documentation
 links Ivan provided.
@@ -353,7 +353,7 @@ problem is already solved. (See 1st week, in LVM2 version 2.02.63.)
 Other than that, I think the features mentioned here would be nice, just need
 to check what is implemented and what is not.
 
-== Summary
+=== Summary
 
 This week I spent time on creating the development environment and
 understanding current issues of dm-mirror. If that's OK with Ivan, that next
