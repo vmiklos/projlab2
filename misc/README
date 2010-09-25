@@ -408,9 +408,9 @@ regarding the log device. Or did I misunderstand something?
 > Yes it does. There is one thing I'm missing here though: how do you choose the default mirror?
 ----
 
-To be honest, I have no idea yet. :) I just saw that the 'mirror_set' has a
-'default_mirror' pointer, so I guess there is already a default one. But I did
-not have a look at the code to see how it is choosen from the set of mirrors.
+From the code, it seems that the 'default_mirror' pointer of rht 'mirror_set'
+structure just always points to the first item in the set. So by defaul it
+would be the first, then the user could change it if it's needed. (See below.)
 
 ----
 > I think the sysctl global read method changing is a good first step.
