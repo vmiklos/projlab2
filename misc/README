@@ -381,15 +381,19 @@ my changes? For now I just created a local git repo, but:
 
 === Clarifications
 
+----
 > In Part 1:
 > 
 > you did a curl and a wget. Why were both of them necesary?
+----
 
 I used curl only for documentation purposes to show the date of the SRPM.
 
+----
 > In Part 3:
 > 
 > Where can you see this problem is solved? How do you make the log device to be used in replicated mode?
+----
 
 I haven't tried it myself, I just had a look at a recent lvm2 release (LVM2.2.02.73.tgz), in particual its WHATS_NEW file. In the 'Version 2.02.63' section, there is a line:
 
@@ -400,12 +404,15 @@ Add ability to create mirrored logs for mirror LVs.
 I guess that means it's finally possible to avoid the single point of failure
 regarding the log device. Or did I misunderstand something?
 
+----
 > Yes it does. There is one thing I'm missing here though: how do you choose the default mirror?
+----
 
 To be honest, I have no idea yet. :) I just saw that the 'mirror_set' has a
 'default_mirror' pointer, so I guess there is already a default one. But I did
 not have a look at the code to see how it is choosen from the set of mirrors.
 
+----
 > I think the sysctl global read method changing is a good first step.
 > Once you are ready with that, it would be good to try it and prove it works as expected.
 > As the second step, I would like to invite you to see about how to choose the default mirror.
@@ -414,12 +421,15 @@ not have a look at the code to see how it is choosen from the set of mirrors.
 > I would make this initially also a runtime setting, so as to avoid the need for changing the LVM metadata headers.
 > 
 > Is this ok with you?
+----
 
 Yes, that sounds fine.
 
+----
 > I need to think about this one. Once you have some working code, we would of course like to see it.
+----
 
-OK, I'll then keep it private for now, then you can decide where should I publish it.
+OK, I'll then keep the repo private for now, then you can decide where should I publish it.
 
 === Goals
 
