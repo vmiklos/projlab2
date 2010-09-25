@@ -376,3 +376,212 @@ my changes? For now I just created a local git repo, but:
   downloaded today?)
 - Where should I share my code? Is it OK if I push it to a public hosting site
   like gitorious.org or do you have a preference?
+
+== 3rd week
+
+=== Clarifications
+
+> In Part 1:
+> 
+> you did a curl and a wget. Why were both of them necesary?
+
+I used curl only for documentation purposes to show the date of the SRPM.
+
+> In Part 3:
+> 
+> Where can you see this problem is solved? How do you make the log device to be used in replicated mode?
+
+I haven't tried it myself, I just had a look at a recent lvm2 release (LVM2.2.02.73.tgz), in particual its WHATS_NEW file. In the 'Version 2.02.63' section, there is a line:
+
+----
+Add ability to create mirrored logs for mirror LVs.
+----
+
+I guess that means it's finally possible to avoid the single point of failure
+regarding the log device. Or did I misunderstand something?
+
+> Yes it does. There is one thing I'm missing here though: how do you choose the default mirror?
+
+To be honest, I have no idea yet. :) I just saw that the 'mirror_set' has a
+'default_mirror' pointer, so I guess there is already a default one. But I did
+not have a look at the code to see how it is choosen from the set of mirrors.
+
+> I think the sysctl global read method changing is a good first step.
+> Once you are ready with that, it would be good to try it and prove it works as expected.
+> As the second step, I would like to invite you to see about how to choose the default mirror.
+> Then, the third step can be a per-mapping setting for the read method.
+> (I refer to it as per-mapping instead of per-LV to stress it works in the device mapper to achieve the mirroring.)
+> I would make this initially also a runtime setting, so as to avoid the need for changing the LVM metadata headers.
+> 
+> Is this ok with you?
+
+Yes, that sounds fine.
+
+> I need to think about this one. Once you have some working code, we would of course like to see it.
+
+OK, I'll then keep it private for now, then you can decide where should I publish it.
+
+=== Goals
+
+Summary of the above:
+
+- sysctl global setting + proove that it works
+- see about how to choose the default mirror
+- per-mapping setting for the read method (first just runtime to avoid metadata change)
+
+=== Adding the sysctl global setting
+
+A simple idea is to allow having the RR IO number (which is 128 by default and
+has to be > 1 at the moment) as 0, which would mean reading only from the
+default mirror. This code seems to be in drivers/md/dm-raid1.c. The
+mirror_message() function can set this default 128 value when it receives a
+message. After some searching, the userspace command to send messages to the
+target is like this:
+
+----
+# dmsetup message myvg-mymirror 0 io_balance round_robin ios 128
+----
+
+Right now the "io_balance round_robin ios" part is fixed, and then the 4th
+argument is the new value. But this can be extended to set different
+properties, so I think it's a good idea to use this method (given that it's
+already there + it's already device-specific) instead of sysctl.
+
+The 'mirror_set' struct has two values for the io numbers: the 'rr_ios_set' is
+the adjustable default, the 'rr_ios' is the current value (which is constantly
+decremented after each read). The RR algorithm is done implemented in the
+choose_mirror() function: the 'read_mirror' pointer is constantly decremented
+and in case it would become invalid, it's moved to the end of the array again.
+
+So what I did is:
+
+- allow setting rr_ios_set value to 0
+- in case rr_ios_set is 0, the ignore rr_ios and just return default_mirror in
+  choose_mirror() (default_mirror is actually the first element of the mirror
+  array at the moment, so there isn't any intelligent algorithm there to find out
+  what would be a good default)
+- added debug printk() to see which mirror is used
+
+To build, install, and reload the kernel module, I defined:
+
+----
+$ alias build="make M=drivers/md"
+$ alias install="sudo cp drivers/md/*.ko /lib/modules/2.6.18-194.el5/extra && sudo depmod -a"
+$ alias reload="sudo sh -c '/usr/sbin/lvchange -a n myvg/mymirror; /sbin/rmmod dm-mirror; /sbin/modprobe dm-mirror; /usr/sbin/lvchange -a y myvg/mymirror'"
+----
+
+Then I just mounted /dev/mapper/myvg-mymirror to /mnt/mirror, that performs a
+few reads already, just enough for quick testing.
+
+dmesg output with rr_ios_set = 4:
+
+----
+device-mapper: raid1: Setting round robin read ios for "253:5" to 4
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+----
+
+dmesg output with rr_ios_set = 0:
+
+----
+device-mapper: raid1: Setting round robin read ios for "253:5" to 0
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+----
+
+(The first patch implements this.)
+
+=== Choosing the default mirror
+
+Now that I think about it - I think that's something that probably the user
+wants to decide. Our use case was that one disk is local and the other is
+remote, so a trivial solution is to add some interface where the user can set
+what's the preferred one.
+
+So for example, let's say sdb is local and sdc is remote. We get the LV name from lvs:
+
+----
+# lvs -a -o +devices
+  LV                  VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                  
+  LogVol00            VolGroup00 -wi-ao   7.38G                                                 /dev/sda2(0)                             
+  LogVol01            VolGroup00 -wi-ao 512.00M                                                 /dev/sda2(236)                           
+  mymirror            myvg       mwi-ao 900.00M                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg       iwi-ao 900.00M                                                 /dev/sdb(0)                              
+  [mymirror_mimage_1] myvg       iwi-ao 900.00M                                                 /dev/sdc(0)                              
+  [mymirror_mlog]     myvg       lwi-ao   4.00M                                                 /dev/sdd(0)   
+----
+
+Then we can use dmsetup to get the numbers of mymirror_mimage_0:
+
+----
+# dmsetup ls
+myvg-mymirror   (253, 5)
+myvg-mymirror_mlog      (253, 2)
+VolGroup00-LogVol01     (253, 1)
+myvg-mymirror_mimage_1  (253, 4)
+VolGroup00-LogVol00     (253, 0)
+myvg-mymirror_mimage_0  (253, 3)
+----
+
+Finally send a message to set it as default:
+
+----
+# dmsetup message myvg-mymirror 0 io_balance default 253:3
+----
+
+dmesg output when the default device is 253:3:
+
+----
+device-mapper: raid1: Setting round robin read ios for "253:5" to 0
+device-mapper: raid1: Setting default device for "253:5" to "253:3"
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+debug, choose_mirror(), choosed mirror is '253:3'
+----
+
+dmesg output when the default device is 253:4:
+
+----
+device-mapper: raid1: Setting default device for "253:5" to "253:4"
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+debug, choose_mirror(), choosed mirror is '253:4'
+----
+
+(The second patch implements this.)
+
+=== Per-mapping setting for the read method
+
+The idea is to use dmesetup messages instead of sysctl and in this case the
+setting is already per-mapping.
+
+=== Plans
+
+Next week it would be nice to do some measurements, though right now I have no
+idea how could we emulate a slow and a fast disk to show that in some cases
+avoiding RR can cause a speedup.
+
+Also, is it enough do be able to choose default mirror like this, or maybe we
+could introduce some algorithm here as well?
+
+So I'm open to ideas on what to do next.
