@@ -595,3 +595,295 @@ Also, is it enough do be able to choose default mirror like this, or maybe we
 could introduce some algorithm here as well?
 
 So I'm open to ideas on what to do next.
+
+== 4th week
+
+Today's goal is to measure the speed of read in case of original and the
+modified code. The idea is to use iSCSI to have one leg of the mirror on an
+other machine, then limit the network speed.
+
+=== Setting up the iSCSI target
+
+In iSCSI terms, the target is the server. I installed a second RHEL in a
+virtual machine for this purpose. The machine has two disks: one for the system
+(sda, 8GB) and one to be exported by iSCSI (sdb, 1GB).
+
+I did a minimal install, then installed the `scsi-target-utils` package. It had
+some non-trivial dependencies, so I first had to configure yum for the install
+media:
+
+----
+[root@iscsitarget repos.d]# cat /etc/yum/repos.d/Server.repo 
+[ISOServer]
+baseurl=file:///media/cdrom/Server
+enabled=1
+[root@iscsitarget repos.d]# ls /etc/yum/repos.d
+Cluster.repo  ClusterStorage.repo  Server.repo
+----
+
+Then `yum install scsi-target-utils --nogpg` did the installation.
+
+To configure the iSCSI target, first I experimented with runtime configuration.
+After reading the manual pages, the following works here:
+
+----
+/etc/init.d/tgtd start
+tgtadm --lld iscsi --op new --mode target --tid 1 -T iqn.2008-03.local.virtual2:storage
+tgtadm --lld iscsi --op new --mode logicalunit --tid 1 --lun 1 -b /dev/sdb
+tgtadm --lld iscsi --op bind --mode target --tid 1 -I ALL
+----
+
+The first command creates the storage with id=1, the second attaches sdb to
+it, and the third just grants access to any initiator.
+
+The status can be seen using:
+
+----
+tgtadm --lld iscsi --op show --mode target
+----
+
+The problem is that this configuration is not kept after restart. The solution
+is to use the /etc/tgt/targets.conf configuration file:
+
+----
+# egrep -v '#|^$' /etc/tgt/targets.conf 
+default-driver iscsi
+<target iqn.2008-03.local.virtual2:storage>
+    backing-store /dev/sdb
+</target>
+----
+
+The comments in the configuration file mentions that the default is to allow
+any initiators, so no need to explicitly state that there.
+
+=== Setting up the iSCSI client
+
+I installed the `iscsi-initiator-utils` package and started the client daemon:
+
+----
+/etc/init.d/iscsi start
+----
+
+Then discovered the targets on the other machine:
+
+----
+# iscsiadm --mode discovery --type sendtargets --portal iscsitarget
+192.168.152.130:3260,1 iqn.2008-03.local.virtual2:storage
+----
+
+Finally restarted the iscsi service to create device nodes for the discovered
+targets:
+
+----
+/etc/init.d/iscsi restart
+----
+
+I used fdisk to list the disks:
+
+----
+# fdisk -l |grep ^Disk
+Disk /dev/sda: 8589 MB, 8589934592 bytes
+Disk /dev/sdb: 1073 MB, 1073741824 bytes
+Disk /dev/sdc: 1073 MB, 1073741824 bytes
+Disk /dev/sdd: 1073 MB, 1073741824 bytes
+Disk /dev/sde: 1073 MB, 1073741824 bytes
+----
+
+sde is the new device, created by the iscsi initiator.
+
+=== Simulating slow network
+
+But first I had to configure tc(8). Sadly the syntax changed over time, so for
+example the old howto from TLDP does not help.
+http://www.cyberciti.biz/faq/linux-traffic-shaping-using-tc-to-control-http-traffic/[This
+one] looks like a fresh one.
+
+To add network latency, I have:
+
+----
+tc qdisc add dev eth0 root netem delay 200ms
+----
+
+To reset the rules:
+
+----
+tc qdisc del dev eth0 root
+----
+
+Then I created two 256MB-sized test files (one local, one remote):
+
+----
+# dd if=/dev/zero of=/mnt/test/test bs=1M count=2
+2+0 records in
+2+0 records out
+2097152 bytes (2.1 MB) copied, 0.0177618 seconds, 118 MB/s
+# dd if=/dev/zero of=/mnt/iscsi/test bs=1M count=2
+2+0 records in
+2+0 records out
+2097152 bytes (2.1 MB) copied, 0.023956 seconds, 87.5 MB/s
+----
+
+It took some time till I could choose a proper file size: small files are read
+instantly, large files take forever. This file size looks like a sane decision
+in the current environment:
+
+----
+# echo 3 > /proc/sys/vm/drop_caches; time cat /mnt/test/test >/dev/null
+
+real    0m0.030s
+user    0m0.003s
+sys     0m0.014s
+# echo 3 > /proc/sys/vm/drop_caches; time cat /mnt/iscsi/test >/dev/null
+
+real    0m17.642s
+user    0m0.000s
+sys     0m0.021s
+----
+
+=== Measuring the mirror read speed
+
+First I rebuilt the mirror: I now used sde (iscsi) instead of sdc for one leg
+of the mirror:
+
+----
+# pvcreate /dev/sde1
+# umount /mnt/mirror
+# lvchange -a n myvg/mymirror
+# lvremove /dev/mapper/myvg-mymirror
+# vgremove myvg
+# vgcreate myvg /dev/sdb
+# vgextend myvg /dev/sde1
+# vgextend myvg /dev/sdd
+# lvcreate -L 900M -n mymirror -m 1 myvg
+----
+
+I used sde1 instead of sde, as - for some reason - lvcreate didn't like the
+idea of using the full iscsi block device.
+
+Later I also changed sdd to sdd1, as I had to change it size from 1G to 500M to
+force using sdd for log device. So the result:
+
+----
+# lvs -a -o +devices
+  LV                  VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                  
+  LogVol00            VolGroup00 -wi-ao   7.38G                                                 /dev/sda2(0)                             
+  LogVol01            VolGroup00 -wi-ao 512.00M                                                 /dev/sda2(236)                           
+  mymirror            myvg       mwi-a- 900.00M                    mymirror_mlog   1.33         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg       Iwi-ao 900.00M                                                 /dev/sdb(0)                              
+  [mymirror_mimage_1] myvg       Iwi-ao 900.00M                                                 /dev/sde1(0)                             
+  [mymirror_mlog]     myvg       lwi-ao   4.00M                                                 /dev/sdd1(0)     
+----
+
+I created the following test script to read the above test file from the
+mirror:
+
+----
+#!/bin/bash
+
+echo 3 > /proc/sys/vm/drop_caches
+mount /dev/mapper/myvg-mymirror /mnt/mirror
+time cat /mnt/mirror/test >/dev/null
+umount /mnt/mirror
+----
+
+The default behaviour (RR with n=128) results in quite different read times,
+depending on when the switch between the two PV occurs (traffic shaping disabled):
+
+----
+# sh test.sh
+
+real    0m9.385s
+user    0m0.000s
+sys     0m0.046s
+# sh test.sh
+
+real    0m0.274s
+user    0m0.003s
+sys     0m0.068s
+# sh test.sh
+
+real    0m1.135s
+user    0m0.001s
+sys     0m0.051s
+----
+
+The output when forcing local reads:
+
+----
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance round_robin ios 0
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance default 253:3
+[root@projlab2 ~]# sh test.sh 
+
+real    0m0.282s
+user    0m0.002s
+sys     0m0.063s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m0.259s
+user    0m0.002s
+sys     0m0.063s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m0.224s
+user    0m0.000s
+sys     0m0.062s
+----
+
+The output when forcing remote reads (traffic shaping disabled):
+
+----
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance default 253:4
+[root@projlab2 ~]# sh test.sh 
+
+real    0m1.262s
+user    0m0.002s
+sys     0m0.045s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m2.004s
+user    0m0.001s
+sys     0m0.054s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m1.644s
+user    0m0.002s
+sys     0m0.049s
+----
+
+With traffic shaping enabled:
+
+----
+[root@projlab2 ~]# sh test.sh 
+
+real    0m22.826s
+user    0m0.001s
+sys     0m0.047s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m20.225s
+user    0m0.000s
+sys     0m0.040s
+[root@projlab2 ~]# sh test.sh 
+
+real    0m13.339s
+user    0m0.001s
+sys     0m0.042s
+----
+
+I think the numbers above state quite nicely what we expected.
+
+=== Questions
+
+What should be the next item to continue with?
+
+A few problems I can think of:
+
+- Try out what happens when one or the other disks fail. (Does it really just properly rebuild the mirror from the log?)
+- Try out that mirrored log feature we talked about and see how it works
+- Handle the case when the difference is not that dramatic (like the
+  local/remote case), when the ratio is like 1:2, then maybe it still makes
+  sense to do some weighted round-robin?
+- Save the settings to LVM metadata what we have only at runtime at the moment
+- Some magic to set the default mirror to the fastest one automatically?
+
+What's your preference?
