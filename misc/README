@@ -887,3 +887,242 @@ A few problems I can think of:
 - Some magic to set the default mirror to the fastest one automatically?
 
 What's your preference?
+
+== 5th week
+
+=== Trying out what happens when one or the other disk fails
+
+I changed back previous week's setup: so the mirror now consists again from `sdb`
+and `sdc` for the data and `sdd` for the log. Given that the other machine is off, there would be a long hang (till the connection times out) when the machine tries to connect to the iscsi server, so I used:
+
+----
+[root@projlab2 ~]# chkconfig --del iscsi
+----
+
+for now. I created some file on the mirror:
+
+----
+[root@projlab2 mnt]# mount /dev/mapper/myvg-mymirror /mnt/mirror
+[root@projlab2 mnt]# cd /mnt/mirror/
+[root@projlab2 mirror]# echo some data > myfile
+----
+
+Then I shut down the machine, removed `sdc` (`projlab2-1-000002.vmdk`) from
+the config and started it again.
+
+I got the following during boot:
+
+----
+Setting up Logical Volume Management:   Couldn't find device with uuid 'ShYeaa-Hsu8-VquL-6Qrt-IPUa-Evzo-A0Oaus'.
+  Refusing activation of partial LV mymirror. Use --partial to override.
+  0 logical volume(s) in volume group "myvg" now active
+  2 logical volume(s) in volume group "VolGroup00" now active
+                                                           [FAILED]
+----
+
+So it stays on the safe side and the mirror device isn't even created. I tried activating the LV in partial mode, then:
+
+----
+[root@projlab2 ~]# lvchange --partial -a y myvg/mymirror
+  Partial mode. Incomplete volume groups will be activated read-only.
+  Couldn't find device with uuid 'ShYeaa-Hsu8-VquL-6Qrt-IPUa-Evzo-A0Oaus'.
+----
+
+That 'read-only' does not mean read-only filesystem though:
+
+----
+[root@projlab2 ~]# mount /dev/mapper/myvg-mymirror /mnt/mirror/
+[root@projlab2 ~]# cd /mnt/mirror/
+[root@projlab2 mirror]# ls
+lost+found  myfile
+[root@projlab2 mirror]# cat myfile 
+some data
+[root@projlab2 mirror]# echo more data >> myfile 
+----
+
+Let's see what happens when I put back `sdc`:
+
+----
+Setting up Logical Volume Management:   Write locks are prohibited with --ignorelockingfailure.
+  Recovery of volume group "myvg" failed.
+  Internal error: Attempt to unlock unlocked VG myvg.
+  2 logical volume(s) in volume group "VolGroup00" now active
+                                                           [FAILED]
+----
+
+Whatever that means, let's see if the LV is really not available:
+
+----
+[root@projlab2 ~]# lvs
+  LV       VG         Attr   LSize   Origin Snap%  Move Log Copy%  Convert
+  LogVol00 VolGroup00 -wi-ao   7.38G                                      
+  LogVol01 VolGroup00 -wi-ao 512.00M                                      
+  mymirror myvg       -wi--- 900.00M            
+-----
+
+Right, we have to manually make it available:
+
+----
+[root@projlab2 ~]# lvchange -a y myvg/mymirror
+[root@projlab2 ~]# mount /dev/mapper/myvg-mymirror /mnt/mirror/
+[root@projlab2 ~]# lvs -a -o +devices
+  LV       VG         Attr   LSize   Origin Snap%  Move Log Copy%  Convert Devices       
+  LogVol00 VolGroup00 -wi-ao   7.38G                                       /dev/sda2(0)  
+  LogVol01 VolGroup00 -wi-ao 512.00M                                       /dev/sda2(236)
+  mymirror myvg       -wi-ao 900.00M                                       /dev/sdb(0)   
+----
+
+So after a manual activation it's available and online, but it's no longer a
+mirror. It's not trivial how to turn it to a mirror again, so I searched.
+
+First, I
+https://www.redhat.com/archives/linux-lvm/2009-September/msg00118.html[found]
+that I can simulate the device failure without a restart:
+
+----
+[root@projlab2 ~]# echo 1 > /sys/bus/scsi/devices/0\:0\:2\:0/delete 
+[root@projlab2 ~]# ls /dev/sdc
+ls: /dev/sdc: No such file or directory
+[root@projlab2 ~]# echo "- - -" > /sys/class/scsi_host/host0/scan 
+[root@projlab2 ~]# ls /dev/sdc
+/dev/sdc
+----
+
+From that thread it's also clear that the log device is only used to avoid a
+complete resync on every reboot, it's not yet used to handle device failures.
+`dmeventd` just removes the failed device *and* the mirror log from the LV so
+it becomes just a regular linear one. This is an important fact, that means in
+case the log fails, it will just take a lot of time to recover, but it won't
+cause a data loss!
+
+Second,
+http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/5/html/Cluster_Logical_Volume_Manager/mirrorrecover.html[here]
+is the official relevant documentation. From that, I needed:
+
+----
+[root@projlab2 ~]# pvcreate /dev/sdc
+  Physical volume "/dev/sdc" successfully created
+[root@projlab2 ~]# pvcreate /dev/sdd1
+  Physical volume "/dev/sdd1" successfully created
+[root@projlab2 ~]# vgextend myvg /dev/sdc /dev/sdd1
+  Volume group "myvg" successfully extended
+[root@projlab2 ~]# lvconvert -m 1 /dev/myvg/mymirror /dev/sdb /dev/sdc /dev/sdd1
+  myvg/mymirror: Converted: 100.0%
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                  VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                  
+  LogVol00            VolGroup00 -wi-ao   7.38G                                                 /dev/sda2(0)                             
+  LogVol01            VolGroup00 -wi-ao 512.00M                                                 /dev/sda2(236)                           
+  mymirror            myvg       mwi-ao 900.00M                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg       iwi-ao 900.00M                                                 /dev/sdb(0)                              
+  [mymirror_mimage_1] myvg       iwi-ao 900.00M                                                 /dev/sdc(0)                              
+  [mymirror_mlog]     myvg       lwi-ao   4.00M                                                 /dev/sdd1(0)   
+----
+
+Now let's try killing `sdb`, without a restart - that will allow me to see
+dmeventd messages:
+
+----
+[root@projlab2 log]# echo 1 > /sys/bus/scsi/devices/0\:0\:1\:0/delete
+[root@projlab2 mirror]# echo "3rd line - after sdd fail" >> /mnt/mirror/myfile
+[root@projlab2 log]# tail -2 /var/log/messages 
+Oct  6 15:25:32 projlab2 lvm[4108]: Repair of mirrored LV myvg/mymirror finished successfully.
+Oct  6 15:25:33 projlab2 lvm[4108]: No longer monitoring mirror device myvg-mymirror for events 
+----
+
+The "recover" means that it got converted to a linear LV. After this, the above
+pvcreate, vgextend, lvconvert combo recovered the mirror:
+
+----
+[root@projlab2 log]# tail -2 /var/log/messages 
+Oct  6 15:28:27 projlab2 lvm[4108]: Monitoring mirror device myvg-mymirror for events
+Oct  6 15:28:55 projlab2 lvm[4108]: myvg-mymirror is now in-sync 
+----
+
+Other than that, it works like a charm, the file-system was continuously mounted
+in read-write while first `sdc` then `sdd` failed. ;)
+
+=== Trying out the mirrored log feature
+
+As I mentioned earlier, this is announced as a new feature in 2.02.63. I wanted
+to see the commit that added this to the changelog to see if it added some
+(more than that single line) documentation on it or testcases or anything. The
+LVM2 homepage states that they are still using CVS. This is bad, as in CVS it's
+hard to see a single commit modified what other files. Then I found
+http://git.et.redhat.com/?p=lvm2.git which hasn't updated in the last year, so
+it's not useful for this situation (the commit in question is somewhere this
+year April). So I started importing the CVS repo to git myself, and *then* I
+found http://sourceware.org/git/?p=lvm2.git which is updated properly. ;)
+
+From that repo, commit 3318c413 is the interesting one. As the commit message
+says, the mirrored log is a new type of log (next to `disk` and `core`), called
+`mirrored`.
+
+Given that RHEL5 comes with lvm2-2.02.56 by default, first I wanted to update
+it to at least 2.02.63. Searching in the changelog later versions add important
+bugfixes to the mirrored log support, so newer versions are interesting as
+well.
+
+I see the following possibilities here:
+
+- backport that single patch to the RHEL5 version. Pro: I don't have to alter the version of the lvm2 package which is already provided. Con: it may be hard to do so, I will miss later bugfixes if I just cherry-pick that single patch.
+- backport a whole new lvm2 version. Pro: that will bring in all the new bugfixes, touching code that I'm unfamiliar with is not necessary. Con: the newer package may or may not work (especially that device-mapper has been merged to LVM2 in the meantime, so there are major changes).
+- don't test it on RHEL5, but try this feature on Fedora. Pro: no manual building of SRPM Con: have to install a new virtual machine
+
+For now, I choose the second: the goal is to backport
+lvm2-2.02.73-1.fc14.src.rpm from Fedora 14. (As far as I know there are no
+public RHEL development SRPM's out there.)
+
+Building and installing it went fine, I just had to disable udev and cluster
+support in the spec file and add a BuildRoot line.
+
+To test it, I needed one more disk in the virtual machine, so that sda runs the
+system, sdb/sdc the data and sdd/sde contains the log. (Of course it would be
+possible to just use multiple partitions / disk, sure.)
+
+After that, I could create the LV with mirrored log:
+
+----
+[root@projlab2 ~]# pvcreate /dev/sde1
+  Physical volume "/dev/sde1" successfully created
+[root@projlab2 ~]# vgextend myvg /dev/sde1
+  Volume group "myvg" successfully extended
+[root@projlab2 ~]# lvcreate -L 900M -n mymirror -m 1 myvg --mirrorlog mirrored
+  Logical volume "mymirror" created
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                       VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                            
+  LogVol00                 VolGroup00 -wi-ao   7.38g                                                 /dev/sda2(0)                                       
+  LogVol01                 VolGroup00 -wi-ao 512.00m                                                 /dev/sda2(236)                                     
+  mymirror                 myvg       mwi-a- 900.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_0]      myvg       iwi-ao 900.00m                                                 /dev/sdc(0)                                        
+  [mymirror_mimage_1]      myvg       iwi-ao 900.00m                                                 /dev/sdb(0)                                        
+  [mymirror_mlog]          myvg       mwi-ao   4.00m                                  100.00         mymirror_mlog_mimage_0(0),mymirror_mlog_mimage_1(0)
+  [mymirror_mlog_mimage_0] myvg       iwi-ao   4.00m                                                 /dev/sde1(0)                                       
+  [mymirror_mlog_mimage_1] myvg       iwi-ao   4.00m                                                 /dev/sdd1(0)
+----
+
+=== Checking what does the mirror log contain
+
+From a quick Google, a
+http://www.linuxquestions.org/questions/linux-software-2/log-file-size-when-mirroring-with-lvm2-788578/[forum
+post] mentions the typical size of a log volume and from that it's clear it
+just tracks which regions are in sync and which are not, it does not contain
+real data.
+
+=== Summary
+
+- handling of failed disks in dm-mirror works properly, though the "Repair of
+  mirrored LV ... finished successfully." message is rather confusing (on its
+  own) on a device *failure*
+- having mirrored log volumes is possible, though that feature is not yet in
+  the last RHEL release nor really necessary as loosing the mirror log does not
+  cause data loss
+- the log device is just used for restarts, not for recovery (this could be
+  improved)
+
+=== Questions
+
+- What to continue with? One idea is to see how can I manage to persist the
+  settings which can be configured (currently only runtime) using dmsetup
+  message.
+- If you think it worths submitting, how should I contribute my changes to the
+  RHEL/upstream kernel?
