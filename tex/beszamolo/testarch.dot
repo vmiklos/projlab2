@@ -1,0 +1,8 @@
+digraph G {
+        node [shape=record]
+        m0 [label="{projlab2 (192.168.152.129)\l|- iSCSI initiator\l- dm-mirror is hosted here}"]
+        m1 [label="{iscsitarget (192.168.152.130)\l|- iSCSI target\l- bandwidth limit\l- network delay}"]
+	rankdir=LR
+        m0 -> m1 [label="write"]
+        m1 -> m0 [label="read"]
+}

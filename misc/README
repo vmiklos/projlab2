@@ -1991,3 +1991,27 @@ These are, of course, just ideas.
 
 No new development or measures, I created a more formal interim report with
 tables and charts from the measured data (attached).
+
+== 8th week
+
+=== Improving interim report
+
+Worked on rounding the rough edges of the interim report:
+
+- get rid of "just" and "like", which are not professional enough for a technical report
+- explained mirror indexes and the concept of a default mirror
+- the part explaining the introduction of rr_ios_set = 0 feature is now split
+  to multiple simple sentences
+- Conclusions / What to work on next: improved style
+- added figure showing the architecture of the test environment
+- explained why tc and htb simulates network latency and bandwidth limit
+  properly
+- explained how a 200ms delay can cause a 30ms -> 17s huge overhead
+- replaced 'w/' and 'w/o' with proper descriptions
+- added 'set up' and 'tear down' descriptions to the write tests
+
+=== Measuring in real environment
+
+=== Automating the evaluation of measures
+
+=== Weighted RR
