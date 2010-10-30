@@ -2012,6 +2012,375 @@ Worked on rounding the rough edges of the interim report:
 
 === Measuring in real environment
 
+The change to the environment is that now the iSCSI target is not a virtual
+machine on the same physical host, but it's really a remote machine.
+
+The following steps were needed:
+
+- discover the target:
+
+----
+[root@projlab2 ~]# iscsiadm --mode discovery --type sendtargets --portal sy.ulx.hu:13260
+----
+
+- change the port and the ip in the config, as the values reported by the
+  target are not suitable for me (since I'm outside the firewall):
+
+----
+[root@projlab2 ~]# vi /var/lib/iscsi/nodes/iqn.2010-10.hu.ulx\:san.remote/172.16.3.39\,3260\,1/default
+----
+
+and there I changed the address and port to:
+
+----
+node.conn[0].address = 81.183.209.160
+node.conn[0].port = 13260
+----
+
+- then I got error messages:
+
+----
+[root@projlab2 ~]# grep trouble /var/log/messages|tail -n 1
+Oct 30 19:59:05 projlab2 setroubleshoot: SELinux is preventing the iscsid (iscsid_t) from connecting to port 13260. For complete SELinux messages. run sealert -l ce2bcba8-efe3-4630-a670-9092e5c54054
+----
+
+Fow now, I just worked that around by:
+
+----
+[root@projlab2 mnt]# echo 0 > /selinux/enforce
+----
+
+Then logging in with `iscsiadm` went fine. At this point I had the following disks:
+
+- sda: local system
+- sdb, sdc, sdd, sde: 1G local disks
+- sdf, sdg: 1G remote disks
+
+I was just curious about the raw throughput first, so I created an sdf1 partition, formatted with ext3, mounted, then:
+
+----
+[root@projlab2 ~]# sync
+[root@projlab2 ~]# time sh -c "dd if=/dev/zero of=/mnt/iscsi/test-2mb.img bs=1M count=2; sync" 2>/dev/null
+
+real    0m11.648s
+user    0m0.002s
+sys     0m0.040s
+----
+
+So it's about 1.3MBit. Now let's see the measures! This will be a bit shorter
+than the previous one as we have fixed network delay and bandwidth limitation,
+but also more interesting as it's real.
+
+There will be 3 new ones:
+
+- local and remote disks with local log
+- local and remote disks with remote log
+- local and remote disks with mirrored log
+
+==== single log, local log, local disks
+
+I repeated this part, but ideally nothing changed.
+
+Setup:
+
+----
+[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdc /dev/sdd
+  Volume group "myvg" successfully created
+[root@projlab2 ~]# lvcreate -L 900M -n mymirror -m 1 myvg
+  Logical volume "mymirror" created
+[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
+----
+
+Test results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m0.129s
+user    0m0.003s
+sys     0m0.036s
+
+real    0m0.134s
+user    0m0.001s
+sys     0m0.036s
+
+real    0m0.071s
+user    0m0.002s
+sys     0m0.034s
+----
+
+Tear down:
+
+----
+[root@projlab2 ~]# lvchange -a n myvg/mymirror
+[root@projlab2 ~]# lvremove myvg/mymirror
+  Logical volume "mymirror" successfully removed
+[root@projlab2 ~]# vgremove myvg
+  Volume group "myvg" successfully removed
+----
+
+==== single log, remote log, local and remote disks
+
+Setup:
+
+- created sdf1 and sdf2 partitions (to make it easy to follow I did not use
+  sdg, so that sdf1 and sdf2 are the remote device nodes here as well, just
+  like before)
+- configured the mirror:
+
+----
+[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdf1 /dev/sdf2
+  No physical volume label read from /dev/sdf1
+  Physical volume "/dev/sdf1" successfully created
+  No physical volume label read from /dev/sdf2
+  Physical volume "/dev/sdf2" successfully created
+  Volume group "myvg" successfully created
+[root@projlab2 ~]# lvcreate -L 10M -n mymirror -m 1 myvg
+  Rounding up size to full physical extent 12.00 MiB
+  Logical volume "mymirror" created
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                  VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices
+  LogVol00            VolGroup00 -wi-ao   7.38g                                                 /dev/sda2(0)
+  LogVol01            VolGroup00 -wi-ao 512.00m                                                 /dev/sda2(236)
+  mymirror            myvg       mwi-a-  12.00m                    mymirror_mlog  33.33         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg       Iwi-ao  12.00m                                                 /dev/sdb(0)
+  [mymirror_mimage_1] myvg       Iwi-ao  12.00m                                                 /dev/sdf1(0)
+  [mymirror_mlog]     myvg       lwi-ao   4.00m                                                 /dev/sdf2(0)
+[root@projlab2 ~]# tail -n 1 /var/log/messages
+Oct 30 20:34:31 projlab2 lvm[3487]: myvg-mymirror is now in-sync.
+[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
+----
+
+I reduced 400M to 10M so that in case it would synchronize the whole contents, it will finish today. ;)
+
+Test results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m12.106s
+user    0m0.001s
+sys     0m0.051s
+
+real    0m12.586s
+user    0m0.002s
+sys     0m0.058s
+
+real    0m12.784s
+user    0m0.000s
+sys     0m0.054s
+----
+
+Tear down:
+
+----
+[root@projlab2 ~]# lvchange -a n myvg/mymirror
+[root@projlab2 ~]# lvremove myvg/mymirror
+  Logical volume "mymirror" successfully removed
+[root@projlab2 ~]# vgremove myvg
+  Volume group "myvg" successfully removed
+----
+
+==== single log, local log, local and remote disks
+
+Setup:
+
+----
+[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdf1 /dev/sdc
+  Volume group "myvg" successfully created
+[root@projlab2 ~]# lvcreate -L 10M -n mymirror -m 1 myvg
+  Rounding up size to full physical extent 12.00 MiB
+  Logical volume "mymirror" created
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                  VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices
+  LogVol00            VolGroup00 -wi-ao   7.38g                                                 /dev/sda2(0)
+  LogVol01            VolGroup00 -wi-ao 512.00m                                                 /dev/sda2(236)
+  mymirror            myvg       mwi-a-  12.00m                    mymirror_mlog   0.00         mymirror_mimage_0(0),mymirror_mimage_1(0)
+  [mymirror_mimage_0] myvg       Iwi-ao  12.00m                                                 /dev/sdb(0)
+  [mymirror_mimage_1] myvg       Iwi-ao  12.00m                                                 /dev/sdf1(0)
+  [mymirror_mlog]     myvg       lwi-ao   4.00m                                                 /dev/sdc(0)
+[root@projlab2 ~]# tail -n 1 /var/log/messages
+Oct 30 20:41:51 projlab2 lvm[3487]: myvg-mymirror is now in-sync.
+[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
+----
+
+Test results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m11.706s
+user    0m0.000s
+sys     0m0.050s
+
+real    0m12.996s
+user    0m0.001s
+sys     0m0.050s
+
+real    0m12.445s
+user    0m0.002s
+sys     0m0.055s
+----
+
+Tear down:
+
+----
+[root@projlab2 ~]# lvchange -a n myvg/mymirror
+[root@projlab2 ~]# lvremove myvg/mymirror
+  Logical volume "mymirror" successfully removed
+[root@projlab2 ~]# vgremove myvg
+  Volume group "myvg" successfully removed
+----
+
+==== mirrored log, local disks
+
+Again, this just just repeated in case something would change in the environment:
+
+Setup:
+
+----
+[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdc /dev/sdd /dev/sde
+  /dev/hdc: open failed: Read-only file system
+  /dev/hdc: open failed: Read-only file system
+  /dev/hdc: open failed: Read-only file system
+  Volume group "myvg" successfully created
+[root@projlab2 ~]# lvcreate -L 400M -n mymirror -m 1 myvg --mirrorlog mirrored
+  Logical volume "mymirror" created
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                       VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                            
+  LogVol00                 VolGroup00 -wi-ao   7.38g                                                 /dev/sda2(0)                                       
+  LogVol01                 VolGroup00 -wi-ao 512.00m                                                 /dev/sda2(236)                                     
+  mymirror                 myvg       mwi-a- 400.00m                    mymirror_mlog  85.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_0]      myvg       Iwi-ao 400.00m                                                 /dev/sdb(0)                                        
+  [mymirror_mimage_1]      myvg       Iwi-ao 400.00m                                                 /dev/sdc(0)                                        
+  [mymirror_mlog]          myvg       mwi-ao   4.00m                                  100.00         mymirror_mlog_mimage_0(0),mymirror_mlog_mimage_1(0)
+  [mymirror_mlog_mimage_0] myvg       iwi-ao   4.00m                                                 /dev/sdd(0)                                        
+  [mymirror_mlog_mimage_1] myvg       iwi-ao   4.00m                                                 /dev/sde(0)
+[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror 
+----
+
+Test results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh 
+
+real    0m2.987s
+user    0m0.002s
+sys     0m0.050s
+
+real    0m3.146s
+user    0m0.003s
+sys     0m0.052s
+
+real    0m3.383s
+user    0m0.003s
+sys     0m0.054s
+----
+
+Tear down:
+
+----
+[root@projlab2 ~]# lvchange -a n myvg/mymirror
+[root@projlab2 ~]# lvremove myvg/mymirror
+  Logical volume "mymirror" successfully removed
+[root@projlab2 ~]# vgremove myvg
+  Volume group "myvg" successfully removed
+----
+
+==== mirrored log, local and remote disks
+
+Setup:
+
+----
+[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdf1 /dev/sdc /dev/sdf2
+  Volume group "myvg" successfully created
+[root@projlab2 ~]# lvcreate -L 10M -n mymirror -m 1 myvg --mirrorlog mirrored
+  Rounding up size to full physical extent 12.00 MiB
+  Logical volume "mymirror" created
+[root@projlab2 ~]# lvs -a -o +devices
+  LV                       VG         Attr   LSize   Origin Snap%  Move Log           Copy%  Convert Devices                                            
+  LogVol00                 VolGroup00 -wi-ao   7.38g                                                 /dev/sda2(0)                                       
+  LogVol01                 VolGroup00 -wi-ao 512.00m                                                 /dev/sda2(236)                                     
+  mymirror                 myvg       mwi-a-  12.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_0]      myvg       iwi-ao  12.00m                                                 /dev/sdb(0)                                        
+  [mymirror_mimage_1]      myvg       iwi-ao  12.00m                                                 /dev/sdf1(0)                                       
+  [mymirror_mlog]          myvg       mwi-ao   4.00m                                  100.00         mymirror_mlog_mimage_0(0),mymirror_mlog_mimage_1(0)
+  [mymirror_mlog_mimage_0] myvg       iwi-ao   4.00m                                                 /dev/sdc(0)                                        
+  [mymirror_mlog_mimage_1] myvg       iwi-ao   4.00m                                                 /dev/sdf2(0)                                       
+[root@projlab2 ~]# tail -n 1 /var/log/messages
+Oct 30 20:54:17 projlab2 lvm[3487]: myvg-mymirror is now in-sync.
+[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
+----
+
+Test results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh 
+
+real    0m12.337s
+user    0m0.000s
+sys     0m0.049s
+
+real    0m12.476s
+user    0m0.001s
+sys     0m0.054s
+
+real    0m12.896s
+user    0m0.003s
+sys     0m0.047s
+----
+
+Tear down:
+
+----
+[root@projlab2 ~]# lvchange -a n myvg/mymirror
+[root@projlab2 ~]# lvremove myvg/mymirror
+  Logical volume "mymirror" successfully removed
+[root@projlab2 ~]# vgremove myvg
+  Volume group "myvg" successfully removed
+[root@projlab2 ~]# /etc/init.d/iscsi stop
+Stopping iSCSI daemon: [  OK  ]
+----
+
+One problem is that as you can see I got no "logout" message and indeed the sdf
+and sdg devices are not removed. After some research I found that I can still
+log out manually using:
+
+----
+[root@projlab2 ~]# iscsiadm -m node -u
+Logging out of session [sid: 1, target: iqn.2010-10.hu.ulx:san.remote, portal: 81.183.209.160,13260]
+Logout of [sid: 1, target: iqn.2010-10.hu.ulx:san.remote, portal: 81.183.209.160,13260]: successful
+[root@projlab2 ~]# ls /dev/sdg
+ls: /dev/sdg: No such file or directory
+----
+
 === Automating the evaluation of measures
 
+The idea is that I have a set of result numbers, like a given configuration
+with network delay = 5, 10, 50, 100, 200ms, all measured 3 times. Till now I
+just threw these numbers to OOo Calc and exported the chart as eps manually.
+In case later more measures will be needed and I'll need more charts, probably
+it'll worth to use a dedicated TeX script for this, like
+http://www.keithv.com/software/barchart/[this]. For now, I did not replace the
+charts I already have with this script.
+
 === Weighted RR
+
+I ran out of time, so I just write down the userspace interface I imagine for
+this feature.
+
+As a reminder, so far we have two commands to change the RR number and set the
+default device. Examples:
+
+----
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance round_robin ios 0
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance default 253:3
+----
+
+A possible way to tell "use 253:3 and 253:4 with weights 1 and 2" (so that
+253:4 will be used twice as 253:3) could be:
+
+----
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance weight 253:3 1
+[root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance weight 253:4 2
+----
