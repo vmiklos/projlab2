@@ -781,8 +781,14 @@ ls: /dev/sdf: No such file or directory
 \item The measured numbers are not always the ones we expected, though generally they are OK, I think.
 \item One false effect is that \emph{sync} does not do empty the write cache on the \emph{iscsitarget} (remote) node.
 \item In general, I would say the mirrored log is a nice feature, as that way
-the two leg of the mirror can be really identical. On the other hand, it seems to be a
-huge overhead with no major benefits.
+the two leg of the mirror can be really identical.
+
+On the other hand, it seems to be a huge overhead. This means that in case
+dm-mirror is running on one machine only, it is not a major benefit. This is
+because in case dm-mirror has a single local log, that's already enough.
+
+Note: dm-mirror is running on multiple boxes in cluster environments, so it
+still makes sense to have mirrored logs in those cases.
 \end{itemize}
 
 \section{What to work on next}

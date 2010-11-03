@@ -787,7 +787,7 @@ umount /mnt/mirror
 ----
 
 The default behaviour (RR with n=128) results in quite different read times,
-depending on when the switch between the two PV occurs (traffic shaping disabled):
+depending on when the switch between the two PV occurs (traffic shaping enabled):
 
 ----
 # sh test.sh
@@ -2384,3 +2384,152 @@ A possible way to tell "use 253:3 and 253:4 with weights 1 and 2" (so that
 [root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance weight 253:3 1
 [root@projlab2 ~]# dmsetup message myvg-mymirror 0 io_balance weight 253:4 2
 ----
+
+== 9th week
+
+=== In-person meeting with Akos
+
+We talked about the possible structure of the diploma I'll write in the next
+two semesters:
+
+- Introduction:
+
+  * context
+  * challenges (examples) / motivation / problems
+  * what do we want to solve
+  * overview + motivating example (why larger IO throughput is good? for example faster backup, or similar) -> refer to this in every later chapter
+
+- Background
+
+- Implementation
+
+- Measurement (important)
+
+- Conclusion & Future Work
+
+=== In-person meeting with Ivan
+
+- Architecture figure is needed for each LVM setup
+- 2nd table: it's not documented if the RR read measure is with delay or not
+- What is the connection between network delay (which is probably per-packet) and the data transferred using iSCSI? What amount of real data is in one (probably IP) packet?
+- Try out what happens if one disk of a mirror goes away then returns - I only tested when it does not return and it gets replaced with a new disk (local version / iSCSI version - like a network cable cut)
+- Conclusion about mirrored log: it worths a note that it may be quite useful in a cluster environment.
+- Set up one more WAN iSCSI target, the one on sy.ulx.hu is behind an ADSL, it would be useful to test a target on a faster connection.
+
+Other than these, we scheduled the rest of the semester:
+
+- 9th week: see above
+- 10th week: read kernel development documentation, especially about locking (I'm not familiar with those) + see if reads are threaded, otherwise weighted RR won't be faster than simply reading from the fastest device
+- 11th week: implement a weighted RR approach
+- 12th week: measurement of the above
+
+We also agreed that it's not a must to include the part about weighted RR in
+the report of this particular semester, it'll be documented in detail later in
+the diploma anyway.
+
+For the last two week:
+
+- 13th week: prepare for the presentation (in-person meeting at ULX to show them first)
+- 14th week: presentation at BME
+
+=== Architecture figure for each LVM setup
+
+I added 5 new figure to the report to help understanding the different LVM
+setups, even if one is not familiar with the LVM commands.
+
+=== Fix 2nd table
+
+There was a typo on trac and thus in the report: when I measured the read speed
+using the default RR approach, then obviously traffic shaping was enabled, not
+disabled as I wrote it to trac (and I did not write anything to the report
+about the dealy). I corrected this now.
+
+=== Network delay vs. iSCSI
+
+When having 200ms delay / packet, the difference was 18.796 - 1.636 = 17.160s
+in the measure.
+
+In case there are no parallel delays, then 17.160s means about 86 packets for
+2MB. As a result, 24385 bytes (at a maximum) passed in one IP packet.
+
+According to RFC2625, the maximum IP packet size is 65536 bytes, so this sounds
+quite valid. (Not to be confused with MTU, which is about the Ethernet frame
+size, that's a lower layer, and there a typical limit is 1500 bytes.)
+
+(Of course iSCSI itself adds some overhead itself, but that's not major, for
+example http://www.cs.unh.edu/~rdr/conf_paper_web.htm[this paper] mentions an
+overhead of about 15 percent only on 100 MBit, in point 6.4.2.)
+
+=== Transient error of a mirror (goes away then cames back)
+
+Ivan mentioned that when they did experiments with dm-mirror, he remembers when
+there was just a transient error (ie. a device failed, then returned) then no
+full resync was needed, ie. LVM utilised the log device. I tried this, but it
+seems it isn't automated:
+
+- the output of `lvs -a -o +devices` is unchanged when the device node is back
+
+- I need a manual `vgextend` and `lvconvert` to add the device node back
+
+- the `lvconvert` operation is about as IO-intensive (if not more) as the
+  mirror creation (by looking at the `iotop` output during the conversion) as
+  during the mirror creation, so I'm afraid the log is not utilised at all.
+
+The situation is the same with local and iSCSI device nodes, except:
+
+- local nodes are manually removed and recovered (by writing values to `/sys`)
+
+- iSCSI nodes are automatically removed when the (virtual) network cable is cut
+  (+ a timeout is reached), and they are reinserted when the network is back
+
+=== Mirrored log vs. clusters
+
+Improved the conclusion section of the report, mirrored logs still make sense
+in cluster environment.
+
+=== One more WAN iSCSI target
+
+I discovered the new target:
+
+----
+[root@projlab2 nodes]# iscsiadm --mode discovery --type sendtargets --portal vmiklos.hu
+157.181.177.34:3260,1 iqn.2010-11.hu.vmiklos:storage
+----
+
+After restarting the client the device node was there:
+
+----
+[root@projlab2 nodes]# ls /dev/sdf
+ls: /dev/sdf: No such file or directory
+[root@projlab2 nodes]# /etc/init.d/iscsi restart
+Stopping iSCSI daemon: 
+iscsid dead but pid file exists                            [  OK  ]
+Starting iSCSI daemon:                                     [  OK  ]
+                                                           [  OK  ]
+Setting up iSCSI targets: Logging in to [iface: default, target: iqn.2010-11.hu.vmiklos:storage, portal: 157.181.177.34,3260]
+Login to [iface: default, target: iqn.2010-11.hu.vmiklos:storage, portal: 157.181.177.34,3260]: successful
+                                                           [  OK  ]
+[root@projlab2 nodes]# ls /dev/sdf
+/dev/sdf
+----
+
+At that time I had the following disks:
+
+- sda: local system
+- sdb, sdc, sdd, sde: 1G local disks
+- sdf: 1G remote disk
+
+Measuring the raw throughput:
+
+----
+[root@projlab2 ~]# time sh -c "dd if=/dev/zero of=/mnt/iscsi/test-2mb.img bs=1M count=2; sync" 2>/dev/null
+
+real    0m11.839s
+user    0m0.006s
+sys     0m0.037s
+----
+
+This is almost exactly the same speed as the one I had with `sy.ulx.hu`, which
+was 11.648s. :( So, for now I did not repeat the measures as I suppose the
+bottleneck at the moment is my network connection at home, so I would get
+almost the same results.
