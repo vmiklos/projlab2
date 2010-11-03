@@ -1,0 +1,8 @@
+digraph G {
+        node [shape=record]
+        m0 [label="{projlab2 (192.168.152.129)\l|- dm-mirror\l- sdb (local disk)\l- sdc (local log)}"]
+        m1 [label="{iscsitarget (192.168.152.130)\l|- sdf1 (remote disk)}"]
+	rankdir=LR
+        m0 -> m0 [label="write"]
+        m0 -> m1 [label="write"]
+}

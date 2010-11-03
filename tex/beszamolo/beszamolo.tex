@@ -432,6 +432,12 @@ Setup:
 [root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
 \end{verbatim}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=75mm,keepaspectratio]{setup1.eps}
+\caption{Architecture of single log, local log, local disks}
+\end{figure}
+
 That is a single measurement (3 times, and then counting the average in seconds):
 0.594.
 
@@ -483,6 +489,12 @@ Oct  6 20:50:36 projlab2 lvm[3487]:
  myvg-mymirror is now in-sync.
 [root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
 \end{verbatim}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=150mm,keepaspectratio]{setup2.eps}
+\caption{Architecture of single log, remote log, local and remote disks}
+\end{figure}
 
 \begin{center}
 \begin{table}[H]
@@ -561,6 +573,12 @@ Oct  6 21:25:18 projlab2 lvm[3487]:
  myvg-mymirror is now in-sync.
 [root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
 \end{verbatim}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=150mm,keepaspectratio]{setup3.eps}
+\caption{Architecture of single log, local log, local and remote disks}
+\end{figure}
 
 \begin{center}
 \begin{table}[H]
@@ -643,6 +661,12 @@ Set up:
 [root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror 
 \end{verbatim}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=75mm,keepaspectratio]{setup4.eps}
+\caption{Architecture of mirrored log, local disks}
+\end{figure}
+
 That is a single measurement (3 times, and then counting the average in seconds):
 3.186.
 
@@ -672,6 +696,12 @@ Oct  6 22:08:58 projlab2 lvm[3487]:
  myvg-mymirror is now in-sync.
 [root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
 \end{verbatim}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=150mm,keepaspectratio]{setup5.eps}
+\caption{Architecture of mirrored log, local and remote disks}
+\end{figure}
 
 \begin{center}
 \begin{table}[H]
