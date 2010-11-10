@@ -1,0 +1,63 @@
+From 733bfa6b5626ce5c0fb967a3dd5c25b8c246c2b1 Mon Sep 17 00:00:00 2001
+From: Miklos Vajna <vmiklos@vmiklos.hu>
+Date: Sat, 25 Sep 2010 14:56:28 +0200
+Subject: [PATCH] dm-mirror: allow setting ios count to 0
+
+Always read from the default_mirror in that case.
+---
+ drivers/md/dm-raid1.c |   18 ++++++++++++++++--
+ 1 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
+index 23c1d65..0480708 100644
+--- a/drivers/md/dm-raid1.c
++++ b/drivers/md/dm-raid1.c
+@@ -849,6 +849,15 @@ static struct mirror *choose_mirror(struct mirror_set *ms)
+ 	 * the first we tried, so we know when we're done.
+ 	 */
+ 	ret = start_mirror = ms->read_mirror;
++
++	/*
++	 * If MIN_READS is zero, then always use the default one.
++	 */
++	if (!atomic_read(&ms->rr_ios_set)) {
++		ret = ms->default_mirror;
++		goto use_mirror;
++	}
++
+ 	do {
+ 		if (likely(!atomic_read(&ret->error_count) &&
+ 			   !atomic_dec_and_test(&ms->rr_ios)))
+@@ -871,6 +880,7 @@ static struct mirror *choose_mirror(struct mirror_set *ms)
+ 
+ use_mirror:
+ 	spin_unlock_irqrestore(&ms->choose_lock, flags);
++	printk("debug, choose_mirror(), choosed mirror is '%s'\n", ret->dev->name);
+ 	return ret;
+ }
+ 
+@@ -1848,8 +1858,10 @@ static int mirror_message(struct dm_target *ti, unsigned argc, char **argv)
+ 
+ 	if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
+ 	    rr_ios_set < 2) {
+-		DMERR("Round robin read ios have to be > 1");
+-		return -EINVAL;
++		if (rr_ios_set != 0) {
++			DMERR("Round robin read ios have to be > 1 or 0");
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	md = dm_table_get_md(ti->table);
+@@ -1936,6 +1948,8 @@ static int __init dm_mirror_init(void)
+ {
+ 	int r;
+ 
++	printk("debug, dm-mirror init\n");
++
+ 	_dm_raid1_read_record_cache = kmem_cache_create("bio_map_info",
+ 				sizeof(struct bio_map_info), 0, 0, NULL, NULL);
+ 	if (!_dm_raid1_read_record_cache) {
+-- 
+1.5.5.6
+

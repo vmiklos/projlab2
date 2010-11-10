@@ -11,7 +11,7 @@
 %\usepackage{fullpage} %\usepackage[margin=2cm]{geometry}
 %\usepackage{amsmath,amssymb}
 \usepackage{url} %VAGY %\usepackage[unicode]{hyperref}
-%\usepackage{listings} % forráskódhoz
+\usepackage{listings}
 %\usepackage{color} 
 \usepackage{graphicx}
 \usepackage{times}
@@ -149,43 +149,7 @@ reached - this is called \emph{rr\_ios\_set} in the source code. This number has
 to be greater or equal to one at the moment.
 What I did is the following: I extended it to support zero as a value as well, and in that case a switch never occurs.
 
-The kernel part of the support code is the following:
-
-\begin{verbatim}
-diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
-index 23c1d65..0480708 100644
---- a/drivers/md/dm-raid1.c
-+++ b/drivers/md/dm-raid1.c
-@@ -849,6 +849,15 @@
-   * the first we tried, so we know when we're done.
-   */
-  ret = start_mirror = ms->read_mirror;
-+
-+ /*
-+  * If MIN_READS is zero, then always use the default one.
-+  */
-+       if (!atomic_read(&ms->rr_ios_set)) {
-+         ret = ms->default_mirror;
-+         goto use_mirror;
-+       }
-+
-  do {
-    if (likely(!atomic_read(&ret->error_count) &&
-         !atomic_dec_and_test(&ms->rr_ios)))
-@@ -1848,8 +1858,10 @@
-
-  if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
-      rr_ios_set < 2) {
--         DMERR("Round robin read ios have to be > 1");
--         return -EINVAL;
-+         if (rr_ios_set != 0) {
-+           DMERR("Round robin read ios have to be > 1 or 0");
-+           return -EINVAL;
-+         }
-  }
-
-  md = dm_table_get_md(ti->table);
-\end{verbatim}
+The kernel part of the support code can be found in the appendix (first patch).
 
 And then the user-space command to disable the switches is the following:
 
@@ -197,83 +161,7 @@ And then the user-space command to disable the switches is the following:
 The first zero is the identifier of the device, the second one is the number
 introducing the real change.
 
-The second problem is about: once we disabled automatic switches, we want to set the default mirror manually. To allow this, I did the following modifications to the kernel part:
-
-\begin{verbatim}
-diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
-index 0480708..47797a5 100644
---- a/drivers/md/dm-raid1.c
-+++ b/drivers/md/dm-raid1.c
-@@ -1846,31 +1846,47 @@
- /* Set round robin ios via message. */
- static int mirror_message(struct dm_target *ti,
-                           unsigned argc, char **argv)
- {
--  unsigned rr_ios_set;
-   struct mirror_set *ms = ti->private;
-   struct mapped_device *md;
- 
--  if (argc != 4 ||
--      strncmp(argv[0], "io_balance", strlen(argv[0])) ||
--      strncmp(argv[1], "round_robin", strlen(argv[1])) ||
--      strncmp(argv[2], "ios", strlen(argv[2])))
--    return -EINVAL;
--
--  if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
--      rr_ios_set < 2) {
--    if (rr_ios_set != 0) {
--      DMERR("Round robin read ios have to be > 1 or 0");
--      return -EINVAL;
-+  if (argc == 4 &&
-+      !strncmp(argv[0], "io_balance", strlen(argv[0])) &&
-+      !strncmp(argv[1], "round_robin", strlen(argv[1])) &&
-+      !strncmp(argv[2], "ios", strlen(argv[2]))) {
-+    unsigned rr_ios_set;
-+    if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
-+        rr_ios_set < 2) {
-+      if (rr_ios_set != 0) {
-+        DMERR("Round robin read ios have to be > 1 or 0");
-+        return -EINVAL;
-+      }
-     }
-+
-+    md = dm_table_get_md(ti->table);
-+    DMINFO("Setting round robin read ios for \"%s\" to %u",
-+        dm_device_name(md), rr_ios_set);
-+    dm_put(md);
-+    atomic_set(&ms->rr_ios_set, rr_ios_set);
-+    atomic_set(&ms->rr_ios, rr_ios_set);
-+    return 0;
-   }
- 
--  md = dm_table_get_md(ti->table);
--  DMINFO("Setting round robin read ios for \"%s\" to %u",
--          dm_device_name(md), rr_ios_set);
--  dm_put(md);
--  atomic_set(&ms->rr_ios_set, rr_ios_set);
--  atomic_set(&ms->rr_ios, rr_ios_set);
--  return 0;
-+  if (argc == 3 &&
-+    !strncmp(argv[0], "io_balance", strlen(argv[0])) &&
-+    !strncmp(argv[1], "default", strlen(argv[1]))) {
-+    unsigned int m;
-+    for (m = 0; m < ms->nr_mirrors; m++)
-+      if (!strncmp(argv[2], ms->mirror[m].dev->name,
-+                   strlen(argv[2]))) {
-+        ms->default_mirror = &ms->mirror[m];
-+        md = dm_table_get_md(ti->table);
-+        DMINFO("Setting default device for \"%s\" to \"%s\"",
-+            dm_device_name(md), argv[2]);
-+        dm_put(md);
-+        return 0;
-+      }
-+  }
-+
-+  return -EINVAL;
- }
- 
- /*
-\end{verbatim}
+The second problem is about: once we disabled automatic switches, we want to set the default mirror manually. To allow this, I created the second patch, which can be found in the appendix as well.
 
 The user-space setting then can be used as follows:
 
@@ -821,7 +709,7 @@ If it's up to me, I would say the last one is the more interesting, since
 currently the dmsetup commands have to be put to some init script which is
 executed on startup any time, which is a bit ugly.
 
-%\clearpage
+\clearpage
 
 \begin{thebibliography}{4}
 \addcontentsline{toc}{section}{References}
@@ -832,4 +720,20 @@ executed on startup any time, which is a bit ugly.
 \bibitem{htb} Hierarchy Token Bucket qdisc in Linux, http://lartc.org/manpages/tc-htb.html
 
 \end{thebibliography}
+
+\clearpage
+\appendix
+
+\section{Patches}
+
+\lstset{numbers=left, numberstyle=\tiny, basicstyle=\ttfamily, breaklines=true, frame=single, tabsize=2}
+
+\subsection{Allow setting ios count to 0}
+
+\lstinputlisting{../../patches/0001-dm-mirror-allow-setting-ios-count-to-0.patch}
+
+\subsection{Allow setting the default mirror}
+
+\lstinputlisting{../../patches/0002-dm-mirror-allow-setting-the-default-mirror.patch}
+
 \end{document}

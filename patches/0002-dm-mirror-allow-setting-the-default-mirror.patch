@@ -1,0 +1,83 @@
+From b2be555522e576a1d933794f528757292d209bc8 Mon Sep 17 00:00:00 2001
+From: Miklos Vajna <vmiklos@vmiklos.hu>
+Date: Sat, 25 Sep 2010 17:16:11 +0200
+Subject: [PATCH] dm-mirror: allow setting the default mirror
+
+---
+ drivers/md/dm-raid1.c |   54 +++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 35 insertions(+), 19 deletions(-)
+
+diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
+index 0480708..47797a5 100644
+--- a/drivers/md/dm-raid1.c
++++ b/drivers/md/dm-raid1.c
+@@ -1846,31 +1846,47 @@ static void mirror_resume(struct dm_target *ti)
+ /* Set round robin ios via message. */
+ static int mirror_message(struct dm_target *ti, unsigned argc, char **argv)
+ {
+-	unsigned rr_ios_set;
+ 	struct mirror_set *ms = ti->private;
+ 	struct mapped_device *md;
+ 
+-	if (argc != 4 ||
+-	    strncmp(argv[0], "io_balance", strlen(argv[0])) ||
+-	    strncmp(argv[1], "round_robin", strlen(argv[1])) ||
+-	    strncmp(argv[2], "ios", strlen(argv[2])))
+-		return -EINVAL;
+-
+-	if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
+-	    rr_ios_set < 2) {
+-		if (rr_ios_set != 0) {
+-			DMERR("Round robin read ios have to be > 1 or 0");
+-			return -EINVAL;
++	if (argc == 4 &&
++	    !strncmp(argv[0], "io_balance", strlen(argv[0])) &&
++	    !strncmp(argv[1], "round_robin", strlen(argv[1])) &&
++	    !strncmp(argv[2], "ios", strlen(argv[2]))) {
++		unsigned rr_ios_set;
++		if (sscanf(argv[3], "%u", &rr_ios_set) != 1 ||
++				rr_ios_set < 2) {
++			if (rr_ios_set != 0) {
++				DMERR("Round robin read ios have to be > 1 or 0");
++				return -EINVAL;
++			}
+ 		}
++
++		md = dm_table_get_md(ti->table);
++		DMINFO("Setting round robin read ios for \"%s\" to %u",
++				dm_device_name(md), rr_ios_set);
++		dm_put(md);
++		atomic_set(&ms->rr_ios_set, rr_ios_set);
++		atomic_set(&ms->rr_ios, rr_ios_set);
++		return 0;
+ 	}
+ 
+-	md = dm_table_get_md(ti->table);
+-	DMINFO("Setting round robin read ios for \"%s\" to %u",
+-	        dm_device_name(md), rr_ios_set);
+-	dm_put(md);
+-	atomic_set(&ms->rr_ios_set, rr_ios_set);
+-	atomic_set(&ms->rr_ios, rr_ios_set);
+-	return 0;
++	if (argc == 3 &&
++		!strncmp(argv[0], "io_balance", strlen(argv[0])) &&
++		!strncmp(argv[1], "default", strlen(argv[1]))) {
++		unsigned int m;
++		for (m = 0; m < ms->nr_mirrors; m++)
++			if (!strncmp(argv[2], ms->mirror[m].dev->name, strlen(argv[2]))) {
++				ms->default_mirror = &ms->mirror[m];
++				md = dm_table_get_md(ti->table);
++				DMINFO("Setting default device for \"%s\" to \"%s\"",
++						dm_device_name(md), argv[2]);
++				dm_put(md);
++				return 0;
++			}
++	}
++
++	return -EINVAL;
+ }
+ 
+ /*
+-- 
+1.5.5.6
+
