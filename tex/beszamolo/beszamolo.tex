@@ -255,13 +255,13 @@ of 3 individual measures):
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-Default (RR, n=128) with delay & 3.598 \\
-Local only & 0.255 \\
-Remote without delay & 1.636 \\
-Remote with delay & 18.796 \\
+Type & m1 (s) & m2 (s) & m3(s) & avg (s) \\ \hline
+Default (RR, n=128) with delay & 9.385 & 0.274 & 1.135 & 3.598 \\
+Local only & 0.282 & 0.259 & 0.224 & 0.255 \\
+Remote without delay & 1.262 & 2.004 & 1.644 & 1.636 \\
+Remote with delay & 22.826 & 20.225 & 13.339 & 18.796 \\
 \hline
 \end{tabular}
 \caption{Mirror read speed of 2MB data}
@@ -334,8 +334,7 @@ Setup: I created myvg from sdb, sdc and sdd, then mymirror on top of myvg.
 \caption{Architecture of single log, local log, local disks}
 \end{figure}
 
-That is a single measurement (3 times, and then counting the average in seconds):
-0.594.
+That is a single measurement (3 times, and then counting the average in seconds): 0.591, 0.603, 0.588 - average: 0.594.
 
 Tear down: I removed myvg.
 
@@ -356,14 +355,14 @@ Finally I configured the mirror named mymirror from sdb, sdf1 and sdf2.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-1:2 & 1.828 \\
-1:5 & 22.872 \\
-1:10 & 37.621 \\
-1:50 & 47.642 \\
-1:100 & 48.643 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s)\\ \hline
+1:2 & 1.705 & 1.841 & 1.939 & 1.828 \\
+1:5 & 21.716 & 23.399 & 23.503 & 22.872 \\
+1:10 & 38.133 & 38.124 & 36.606 & 37.621 \\
+1:50 & 47.035 & 48.205 & 47.688 & 47.642 \\
+1:100 & 49.633 & 48.240 & 48.057 & 48.643 \\
 \hline
 \end{tabular}
 \caption{Network write speed with single log, remote log, local and remote disk, different ratios}
@@ -385,14 +384,14 @@ No setup, the mirror was already there.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-5ms & 0.823 \\
-10ms & 0.752 \\
-50ms & 2.676 \\
-100ms & 4.341 \\
-200ms & 13.558 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s)\\ \hline
+5ms & 0.577 & 0.653 & 1.239 & 0.823 \\
+10ms & 1.086 & 0.564 & 0.606 & 0.752 \\
+50ms & 2.649 & 2.622 & 2.759 & 2.676 \\
+100ms & 6.067 & 3.517 & 3.441 & 4.341 \\
+200ms & 16.352 & 13.930 & 10.392 & 13.558 \\
 \hline
 \end{tabular}
 \caption{Network write speed with single log, remote log, local and remote disk, different delays}
@@ -420,14 +419,14 @@ Setup: I created mymirror from sdb, sdf1 and sdc.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-1:2 & 3.384 \\
-1:5 & 7.032 \\
-1:10 & 6.876 \\
-1:50 & 45.978 \\
-1:100 & 47.815 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s) \\ \hline
+1:2 & 2.460 & 5.277 & 2.415 & 3.384 \\
+1:5 & 5.028 & 6.440 & 9.629 & 7.032 \\
+1:10 & 4.528 & 11.906 & 4.195 & 6.876 \\
+1:50 & 45.302 & 48.226 & 44.406 & 45.978 \\
+1:100 & 48.311 & 46.820 & 48.314 & 47.815 \\
 \hline
 \end{tabular}
 \caption{Network write speed with single log, local log, local and remote disk, different ratios}
@@ -449,14 +448,14 @@ No setup, the mirror is the same as with the previous test.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-5ms & 3.463 \\
-10ms & 3.328 \\
-50ms & 3.026 \\
-100ms & 4.762 \\
-200ms & 7.337 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s) \\ \hline
+5ms & 3.736 & 3.489 & 3.166 & 3.463 \\
+10ms & 3.267 & 3.872 & 2.846 & 3.328 \\
+50ms & 2.844 & 3.929 & 2.306 & 3.026 \\
+100ms & 5.306 & 4.578 & 4.402 & 4.762 \\
+200ms & 7.114 & 5.978 & 8.920 & 7.337 \\
 \hline
 \end{tabular}
 \caption{Network write speed with single log, local log, local and remote disk, different delays}
@@ -487,7 +486,7 @@ Setup: I created myvg from sdb, sdc, sdd and sde.
 \end{figure}
 
 That is a single measurement (3 times, and then counting the average in seconds):
-3.186.
+3.183, 3.181, 3.195, average: 3.186.
 
 Tear down: I removed myvg.
 
@@ -504,14 +503,14 @@ Setup: I created myvg from sdb, sdf1, sdc and sdf2.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-1:2 & 2.032 \\
-1:5 & 22.661 \\
-1:10 & 38.246 \\
-1:50 & 47.09 \\
-1:100 & 49.026 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s)\\ \hline
+1:2 & 1.756 & 2.026 & 2.316 & 2.032 \\
+1:5 & 21.773 & 23.324 & 22.887 & 22.661 \\
+1:10 & 38.318 & 38.181 & 38.240 & 38.246 \\
+1:50 & 47.423 & 45.946 & 47.901 & 47.09 \\
+1:100 & 50.239 & 48.765 & 48.075 & 49.026 \\
 \hline
 \end{tabular}
 \caption{Network write speed with mirrored log, local and remote disk, different ratios}
@@ -533,14 +532,14 @@ No setup, I re-used the mirror from the previous test.
 \begin{center}
 \begin{table}[H]
 \centering
-\begin{tabular}{| l | l |}
+\begin{tabular}{| l | l | l | l | l |}
 \hline
-Type & Time \\ \hline
-5ms & 0.946 \\
-10ms & 0.939 \\
-50ms & 3.222 \\
-100ms & 5.175 \\
-200ms & 12.384 \\
+Type & m1 (s) & m2 (s) & m3 (s) & avg (s) \\ \hline
+5ms & 1.380 & 0.824 & 0.636 & 0.946 \\
+10ms & 1.300 & 0.741 & 0.776 & 0.939 \\
+50ms & 3.430 & 3.009 & 3.228 & 3.222 \\
+100ms & 7.673 & 4.269 & 3.583 & 5.175 \\
+200ms & 14.233 & 11.855 & 11.066 & 12.384 \\
 \hline
 \end{tabular}
 \caption{Network write speed with mirrored log, local and remote disk, different delays}
