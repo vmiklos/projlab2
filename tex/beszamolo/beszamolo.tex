@@ -403,6 +403,12 @@ write). The difference is measure error, we already saw above that the result
 varies a bit each time we repeat the test. As a result, sadly it's not entirely
 possible to exactly repeat the same test with and without network delay.
 
+Now that we understand the difference between remote reads with and without
+network delay, let's compare the other results. Reading using Round Robin (with
+delay) is slower than a remote read without delay, we expected that. Also,
+reading from remote with delay is slower than reading from local and remote
+(what RR does) as well, so the results show what we would predict.
+
 \subsection{Write speed}
 
 First I measured write speed with different network bandwidth available. In this case no LVM technique was involved, I used plain scp to copy data projlab2 to iscsitarget:
