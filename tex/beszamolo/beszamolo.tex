@@ -340,6 +340,26 @@ Tear down: I removed myvg.
 
 \subsubsection{Single log, remote log, local and remote disk, different ratios}
 
+By different ratios, I mean limiting network bandwidth different way. I want to
+clarify the connection between logical ratios and exact network speeds I used:
+
+\begin{center}
+\begin{table}[H]
+\centering
+\begin{tabular}{| l | l |}
+\hline
+Logical ratio & physical speed (kilobits) \\ \hline
+1:2 & 50000 \\
+1:5 & 20000 \\
+1:10 & 10000 \\
+1:50 & 2000 \\
+1:100 & 1000 \\
+\hline
+\end{tabular}
+\caption{Comparison of different network bandwidth ratios and physical speeds}
+\end{table}
+\end{center}
+
 Setup: I created sdb1 and sdb1 on iscsitarget and started the daemon there.
 
 Then I configured the client, the new devices nodes here are sdf1 and sdf2.
@@ -553,6 +573,27 @@ Type & m1 (s) & m2 (s) & m3 (s) & avg (s) \\ \hline
 \end{figure}
 
 Tear down: I disabled network latency, then removed myvg.
+
+\subsection{Write speed in a real-life environment}
+
+I did the same test in a real environment. The test is the same: I wrote 2MB of
+data to the mirror. The results are still in seconds.
+
+\subsubsection*{Single log, remote log, local and remote disks}
+
+I could not change the parameters here, so I simply did the test 3 times: 12.106, 12.586, 12.784; average: 12.49.
+
+\subsubsection*{Single log, local log, local and remote disks}
+
+Same here (not possible to change parameters), the results: 11.706, 12.996, 12.445; average: 12.38.
+
+\subsubsection*{Mirrored log, local disks}
+
+The results: 2.987, 3.146, 3.383; average: 3.17.
+
+\subsubsection*{Mirrored log, local and remote disks}
+
+The results: 12.337, 12.476, 12.896; average: 12.56.
 
 \subsection{Conclusions}
 
