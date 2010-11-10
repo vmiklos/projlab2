@@ -220,6 +220,24 @@ to CBQ, see its documentation\cite{htb} fore more details.
 The LARC HOWTO even provides a ready to use script to limit bandwidth, I used
 that without any major modifications.
 
+It's important to consider why these two parameters model well a real life
+situation where a device is on a Wide Area Network. The Linux
+Foundation\cite{netem} has a great article in this topic. They collected the following network problems:
+
+\begin{itemize}
+\item delay
+\item rate
+\item packet loss
+\item packet duplication
+\item packet corruption
+\item packet reordering
+\end{itemize}
+
+Given that we are interested in the high-level iSCSI behaviour, the packet
+problems can be simply simulated with a slow network bandwidth. So a good
+approach is to control the network delay and the bandwidth available, and that
+should cover the other aspects.
+
 \subsection{Read speed}
 
 First I checked the read time of a 2MB-sized file without network latency and
@@ -634,6 +652,7 @@ executed on startup any time, which is a bit ugly.
 \bibitem{lvmmirror} Mirror Volumes Using Logical Volume Manager, RedHat Enterprise Linux 5 \\ Documentation, \url{http://bit.ly/bkcn6d}
 \bibitem{lartc} Linux Advanced Routing and Traffic Control HOWTO, http://lartc.org/howto/index.html
 \bibitem{htb} Hierarchy Token Bucket qdisc in Linux, http://lartc.org/manpages/tc-htb.html
+\bibitem{netem} The Linux Foundation: netem, http://www.linuxfoundation.org/ collaborate/workgroups/networking/netem\#Examples
 
 \end{thebibliography}
 
