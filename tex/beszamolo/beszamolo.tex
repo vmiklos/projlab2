@@ -629,6 +629,15 @@ Note: dm-mirror is running on multiple boxes in cluster environments, so it
 still makes sense to have mirrored logs in those cases.
 \end{itemize}
 
+I also want to point out that the measurements above show us that any network
+bandwidth slowness or network delay massively enlarges the read and write time
+of the mirror (in case it has remote parts). This means it's quite important to
+be able to optimize reading from such mirrors: when we write, we must write to
+all legs of a mirror, but when we read, we should do our best to read from the
+local leg, whenever possible. And this is basically what my modification in the
+dm-mirror driver does - even if it's a small modification, it may cause radical
+speedups in some situations.
+
 \section{What to work on next}
 
 I basically have three ideas on where could I continue:
