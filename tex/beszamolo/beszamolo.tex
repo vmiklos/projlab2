@@ -326,15 +326,7 @@ From now, I measured mirror write speed of 2MB data, with various parameters.
 
 \subsubsection{Singe log, local log, local disks}
 
-Setup:
-
-\begin{verbatim}
-[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdc /dev/sdd
-  Volume group "myvg" successfully created
-[root@projlab2 ~]# lvcreate -L 900M -n mymirror -m 1 myvg
-  Logical volume "mymirror" created
-[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
-\end{verbatim}
+Setup: I created myvg from sdb, sdc and sdd, then mymirror on top of myvg.
 
 \begin{figure}[H]
 \centering
@@ -345,54 +337,15 @@ Setup:
 That is a single measurement (3 times, and then counting the average in seconds):
 0.594.
 
-Tear down:
-
-\begin{verbatim}
-[root@projlab2 ~]# lvchange -a n myvg/mymirror
-[root@projlab2 ~]# lvremove myvg/mymirror
-  Logical volume "mymirror" successfully removed
-[root@projlab2 ~]# vgremove myvg
-  Volume group "myvg" successfully removed
-\end{verbatim}
+Tear down: I removed myvg.
 
 \subsubsection{Single log, remote log, local and remote disk, different ratios}
 
-Setup: I created sdb1 and sdb1 on iscsitarget and started the daemon:
+Setup: I created sdb1 and sdb1 on iscsitarget and started the daemon there.
 
-\begin{verbatim}
-[root@iscsitarget ~]# /etc/init.d/tgtd start
-Starting SCSI target daemon: [  OK  ]
-\end{verbatim}
+Then I configured the client, the new devices nodes here are sdf1 and sdf2.
 
-Then I configured the client:
-
-\begin{verbatim}
-[root@projlab2 ~]# /etc/init.d/iscsi start
-iscsid (pid  2237) is running...
-Setting up iSCSI targets: Logging in to
- [iface: default, target: iqn.2008-03.local.virtual2:storage,
- portal: 192.168.152.130,3260]
-Login to [iface: default,
- target: iqn.2008-03.local.virtual2:storage,
- portal: 192.168.152.130,3260]: successful
- [  OK  ]
-[root@projlab2 ~]# fdisk -l|tail -n 2
-/dev/sdf1               1          65      522081   83  Linux
-/dev/sdf2              66         130      522112+  83  Linux
-\end{verbatim}
-
-As you can see above, the remote disk appeared as sdf. Finally I configured the mirror:
-
-\begin{verbatim}
-[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdf1 /dev/sdf2
-  Volume group "myvg" successfully created
-[root@projlab2 ~]# lvcreate -L 400M -n mymirror -m 1 myvg
-  Logical volume "mymirror" created
-[root@projlab2 ~]# tail -n 1 /var/log/messages
-Oct  6 20:50:36 projlab2 lvm[3487]:
- myvg-mymirror is now in-sync.
-[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
-\end{verbatim}
+Finally I configured the mirror named mymirror from sdb, sdf1 and sdf2.
 
 \begin{figure}[H]
 \centering
@@ -423,7 +376,7 @@ Type & Time \\ \hline
 \caption{Comparing network write speed with single log, remote log, local and remote disk, different ratios}
 \end{figure}
 
-Tear down: I disabled bandwith limitation.
+Tear down: I disabled bandwidth limitation.
 
 \subsubsection{Single log, remote log, local and remote disk, different delays}
 
@@ -452,31 +405,11 @@ Type & Time \\ \hline
 \caption{Comparing network write speed with single log, remote log, local and remote disk, different delays}
 \end{figure}
 
-Tear down: I disabled the simulation of network latency, then:
-
-\begin{verbatim}
-[root@iscsitarget ~]# ./delay.sh stop
-[root@projlab2 ~]# lvchange -a n myvg/mymirror
-[root@projlab2 ~]# lvremove myvg/mymirror
-  Logical volume "mymirror" successfully removed
-[root@projlab2 ~]# vgremove myvg
-  Volume group "myvg" successfully removed
-\end{verbatim}
+Tear down: I disabled the simulation of network latency, then removed myvg.
 
 \subsubsection{Single log, local log, local and remote disk, different ratios}
 
-Set up:
-
-\begin{verbatim}
-[root@projlab2 ~]# vgcreate myvg /dev/sdb /dev/sdf1 /dev/sdc
-  Volume group "myvg" successfully created
-[root@projlab2 ~]# lvcreate -L 400M -n mymirror -m 1 myvg
-  Logical volume "mymirror" created
-[root@projlab2 ~]# tail -n 1 /var/log/messages
-Oct  6 21:25:18 projlab2 lvm[3487]:
- myvg-mymirror is now in-sync.
-[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
-\end{verbatim}
+Setup: I created mymirror from sdb, sdf1 and sdc.
 
 \begin{figure}[H]
 \centering
@@ -536,15 +469,7 @@ Type & Time \\ \hline
 \caption{Comparing network write speed with single log, local log, local and remote disk, different delays}
 \end{figure}
 
-Tear down: I disabled network latency, then:
-
-\begin{verbatim}
-[root@projlab2 ~]# lvchange -a n myvg/mymirror
-[root@projlab2 ~]# lvremove myvg/mymirror
-  Logical volume "mymirror" successfully removed
-[root@projlab2 ~]# vgremove myvg
-  Volume group "myvg" successfully removed
-\end{verbatim}
+Tear down: I disabled network latency, then removed myvg.
 
 \subsubsection{Mirrored log, local disks}
 
@@ -553,17 +478,7 @@ lvm2 from Fedora rawhide. This has the benefit that other components of the syst
 is not changed. The downside is that this way the measurement is less official,
 since then this is a custom system.
 
-Set up:
-
-\begin{verbatim}
-[root@projlab2 ~]# vgcreate myvg \
-  /dev/sdb /dev/sdc /dev/sdd /dev/sde
-  Volume group "myvg" successfully created
-[root@projlab2 ~]# lvcreate -L 400M -n mymirror -m 1 myvg \
-  --mirrorlog mirrored
-  Logical volume "mymirror" created
-[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror 
-\end{verbatim}
+Setup: I created myvg from sdb, sdc, sdd and sde.
 
 \begin{figure}[H]
 \centering
@@ -574,32 +489,11 @@ Set up:
 That is a single measurement (3 times, and then counting the average in seconds):
 3.186.
 
-Tear down:
-
-\begin{verbatim}
-[root@projlab2 ~]# lvchange -a n myvg/mymirror
-[root@projlab2 ~]# lvremove myvg/mymirror
-  Logical volume "mymirror" successfully removed
-[root@projlab2 ~]# vgremove myvg
-  Volume group "myvg" successfully removed
-\end{verbatim}
+Tear down: I removed myvg.
 
 \subsubsection{Mirrored log, local and remote disk, different ratios}
 
-Set up:
-
-\begin{verbatim}
-[root@projlab2 ~]# vgcreate myvg \
-  /dev/sdb /dev/sdf1 /dev/sdc /dev/sdf2
-  Volume group "myvg" successfully created
-[root@projlab2 ~]# lvcreate -L 400M -n mymirror -m 1 myvg \
-  --mirrorlog mirrored
-  Logical volume "mymirror" created
-[root@projlab2 ~]# tail -n 1 /var/log/messages
-Oct  6 22:08:58 projlab2 lvm[3487]:
- myvg-mymirror is now in-sync.
-[root@projlab2 ~]# mke2fs -j /dev/myvg/mymirror
-\end{verbatim}
+Setup: I created myvg from sdb, sdf1, sdc and sdf2.
 
 \begin{figure}[H]
 \centering
@@ -630,7 +524,7 @@ Type & Time \\ \hline
 \caption{Comparing network write speed with mirrored log, local and remote disk, different ratios}
 \end{figure}
 
-Tear down: I stopped the bandwith limit.
+Tear down: I stopped the bandwidth limit.
 
 \subsubsection{Mirrored log, local and remote disk, different delays}
 
@@ -659,25 +553,7 @@ Type & Time \\ \hline
 \caption{Comparing network write speed with mirrored log, local and remote disk, different delays}
 \end{figure}
 
-Tear down: I disabled network latency, then:
-
-\begin{verbatim}
-[root@projlab2 ~]# lvchange -a n myvg/mymirror
-[root@projlab2 ~]# lvremove myvg/mymirror
-  Logical volume "mymirror" successfully removed
-[root@projlab2 ~]# vgremove myvg
-  Volume group "myvg" successfully removed
-[root@projlab2 ~]# /etc/init.d/iscsi stop
-Logging out of session [sid: 1, target:
- iqn.2008-03.local.virtual2:storage,
- portal: 192.168.152.130,3260]
-Logout of [sid: 1,
- target: iqn.2008-03.local.virtual2:storage,
- portal: 192.168.152.130,3260]: successful
-Stopping iSCSI daemon: 
-[root@projlab2 ~]# ls /dev/sdf
-ls: /dev/sdf: No such file or directory
-\end{verbatim}
+Tear down: I disabled network latency, then removed myvg.
 
 \subsection{Conclusions}
 
