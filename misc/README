@@ -2533,3 +2533,224 @@ This is almost exactly the same speed as the one I had with `sy.ulx.hu`, which
 was 11.648s. :( So, for now I did not repeat the measures as I suppose the
 bottleneck at the moment is my network connection at home, so I would get
 almost the same results.
+
+== 10th week
+
+=== Measurement with tcpdump
+
+The idea here is to use tcpdump to see the incoming traffic on projlab2 from
+iscsitarget and to proof that the elapsed time is relevant, if the per-packet
+network delay is 200ms. This should give us better results than just counting
+on a paper.
+
+So I configured the mirror to read from the remote leg, enabled 200ms delay and
+I ran `tcpdump > log` in an other shell while doing the measurement.
+
+First I checked the size of the incoming traffic (exluding ACK's):
+
+----
+[root@projlab2 ~]# grep 'iscsitarget.iscsi-target > projlab2' log|grep -v '\. ack '|sed 's/.*(\(.*\)).*/\1/'|xargs echo|sed 's/ /+/g'|bc
+2269008
+----
+
+So the traffic from iscsitarget to projlab2 was 2269008 bytes, which is a bit
+more than 2MB. The difference is the iSCSI overhead.  Let's check the number of
+packages:
+
+----
+[root@projlab2 ~]# grep 'iscsitarget.iscsi-target > projlab2' log|grep -v '\. ack '|wc -l
+1602
+----
+
+Which is much more than the expected 86, so it was a good idea to use tcpdump.
+
+Now in case all these packages are delayed, the total delay would be 320.4
+seconds, while it is 17.16. It seems the trick is that only packages with the
+PUSH tcp flag are delayed:
+
+----
+[root@projlab2 ~]# grep 'iscsitarget.iscsi-target > projlab2' log|grep -v '\. ack '|grep -c ': P '
+70
+----
+
+That makes sense, since that's the end of logical packets, other packets are
+just fragmented, as the size of the IP packets are smaller than the size of the
+logical writes.
+
+So ideally the delay would be 70*0.2 = 14s, while the measured delay is
+17.160s. The difference is measure error, we already saw above that the
+measured times have some dispersion.
+
+=== Changes in the report
+
+- note about tcpdump results
+- more description of table 2
+- moved patches to the appendix
+- removed vg* and lv* commands, they are here in the wiki if someone is interested
+- tables now contain measured numbers as well (before average ones), where they were missing previously
+- added table showing ratios and physical speeds
+- added results of real-life measures
+- added a description on why the simulated environment models a real WAN
+  properly (to the start of the 'Measurements' section, before the first
+  subsection)
+- conclusion: added note on how measurement results proof the usefulness of my
+  modifications to the dm-mirror driver
+
+=== Validating our model
+
+The idea: let's measure the network ratio and delay of the real-life
+environment, set up the simulated environment with the measured parameters and
+see if we get similar results. If yes, then this can be a proof on our
+simulated environment models the problem well.
+
+The delay:
+
+----
+[root@projlab2 ~]# ping -c 3 sy.ulx.hu
+PING titan.ulx.hu (81.183.209.160) 56(84) bytes of data.
+64 bytes from dsl51B7D1A0.fixip.t-online.hu (81.183.209.160): icmp_seq=1 ttl=128 time=28.8 ms
+64 bytes from dsl51B7D1A0.fixip.t-online.hu (81.183.209.160): icmp_seq=2 ttl=128 time=31.2 ms
+64 bytes from dsl51B7D1A0.fixip.t-online.hu (81.183.209.160): icmp_seq=3 ttl=128 time=32.1 ms
+[root@projlab2 ~]# ping -c 3 iscsitarget
+PING iscsitarget (192.168.152.130) 56(84) bytes of data.
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=1 ttl=64 time=2.12 ms
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=2 ttl=64 time=0.459 ms
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=3 ttl=64 time=0.358 ms
+----
+
+So the average delay is (28.8+31.2+32.1)/3-(2.12+0.459+0.358)/3 = 29.73ms
+(compared to the delay of the other machine, where it should be almost zero).
+
+The ratio:
+
+Writing 2MB of data takes 11.839s (see 8th week): (2*1024*8)/11.839=1383.90
+kilobits/s.
+
+This means I'll repeat the measures in the simulated environment with
+delay=30ms, ratio=1384kbps:
+
+----
+[root@iscsitarget ~]# ./limit.sh start 1384
+[root@iscsitarget ~]# ./delay.sh start 30
+[root@projlab2 ~]# ping -c 3 iscsitarget
+PING iscsitarget (192.168.152.130) 56(84) bytes of data.
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=1 ttl=64 time=35.3 ms
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=2 ttl=64 time=32.5 ms
+64 bytes from iscsitarget (192.168.152.130): icmp_seq=3 ttl=64 time=34.5 ms
+----
+
+==== Single log, remote log, local and remote disks
+
+Expected (in seconds): 12.49.
+
+Results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m15.006s
+user    0m0.004s
+sys     0m0.062s
+
+real    0m14.778s
+user    0m0.005s
+sys     0m0.055s
+
+real    0m14.991s
+user    0m0.006s
+sys     0m0.052s
+----
+
+(15.006+14.778+14.991)/3 = 14.92
+
+==== Single log, local log, local and remote disks
+
+Expected: 12.38.
+
+Results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m14.581s
+user    0m0.003s
+sys     0m0.047s
+
+real    0m14.931s
+user    0m0.001s
+sys     0m0.053s
+
+real    0m14.717s
+user    0m0.004s
+sys     0m0.051s
+----
+
+(14.581+14.931+14.717)/3 = 14.74
+
+==== Mirrored log, local and remote disks
+
+Expected: 12.56.
+
+Results:
+
+----
+[root@projlab2 ~]# ./test-write.sh; ./test-write.sh; ./test-write.sh
+
+real    0m15.071s
+user    0m0.002s
+sys     0m0.064s
+
+real    0m14.658s
+user    0m0.003s
+sys     0m0.055s
+
+real    0m14.755s
+user    0m0.003s
+sys     0m0.053s
+----
+
+(15.071+14.658+14.755)/3 = 14.82
+
+To sum up, in each case the simulated environment had an acceptable difference
+to the real one, I think.
+
+=== Transient error of a mirror (again)
+
+The question was if it's possible that in some cases when the remote leg goes
+away the mirror is not converted to a linear volume.
+
+The answer is definitely yes. What I tried is to have two local legs, and in
+that case when I disable one device via sysfs, the mirror is converted to a
+linear volume.
+
+What I didn't try is a remote leg (I thought that will be the same): when I
+have a remote leg it can recover:
+
+----
+[root@projlab2 ~]# lvs -a -o +devices|grep mymirror_mimage_1
+  mymirror                 myvg       mwi-a-  12.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_1]      myvg       iwi-ao  12.00m                                                 /dev/sdg1(0)                                       
+[root@projlab2 ~]# /etc/init.d/iscsi stop
+Logging out of session [sid: 4, target: iqn.2008-03.local.virtual2:storage, portal: 192.168.152.130,3260]
+Logout of [sid: 4, target: iqn.2008-03.local.virtual2:storage, portal: 192.168.152.130,3260]: successful
+Stopping iSCSI daemon:                                     [  OK  ]
+[root@projlab2 ~]# lvs -a -o +devices|grep mymirror_mimage_1
+  Couldn't find device with uuid GyfMKL-c11n-DUQ8-KRKZ-RW5v-GEN9-aBWy0Z.
+  Couldn't find device with uuid z0kSwr-6uPS-A6EK-8oLV-2Bli-N31w-2C08aG.
+  mymirror                 myvg       mwi-a-  12.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_1]      myvg       iwi-ao  12.00m                                                 unknown device(0)                                  
+[root@projlab2 ~]# /etc/init.d/iscsi start
+iscsid dead but pid file exists
+Starting iSCSI daemon:                                     [  OK  ]
+Setting up iSCSI targets: Logging in to [iface: default, target: iqn.2008-03.local.virtual2:storage, portal: 192.168.152.130,3260]
+Login to [iface: default, target: iqn.2008-03.local.virtual2:storage, portal: 192.168.152.130,3260]: successful
+[root@projlab2 ~]# lvs -a -o +devices|grep mymirror_mimage_1
+  mymirror                 myvg       mwi-a-  12.00m                    mymirror_mlog 100.00         mymirror_mimage_0(0),mymirror_mimage_1(0)          
+  [mymirror_mimage_1]      myvg       iwi-ao  12.00m                                                 /dev/sdg1(0)
+----
+
+=== Future work
+
+Actually I didn't even begin what I planned for today, to read about the
+thread-safe data handling API of the kernel, but I ran out of time. In case no
+other tasks appear till then, I plan to do it next week.
