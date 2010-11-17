@@ -609,6 +609,48 @@ Same here (not possible to change parameters), the results: 11.706, 12.996, 12.4
 
 The results: 12.337, 12.476, 12.896; average: 12.56.
 
+\subsection{Validating our model}
+
+In this subsection, I want to proof that our model to represent network delays
+and bandwidth limitations is valid. I measured the network ratio and delay of
+the real-life environment, set up the simulated environment with the measured
+parameters and compared the results.
+
+\subsubsection*{The delay}
+
+I measured the ICMP echo request response time of the remote \emph{sy.ulx.hu}
+machine and of the virtual \emph{iscsitarget}.
+
+The result of the differences: (28.8+31.2+32.1)/3-(2.12+0.459+0.358)/3 = 29.73ms.
+
+\subsubsection*{The bandwidth}
+
+Writing 2MB of data takes 11.839s: (2*1024*8)/11.839=1383.90 kilobits/s.
+
+I measure the simulated system with the above parameters and I compare the
+results I got to the real-life ones.
+
+\subsubsection*{Single log, remote log, local and remote disks}
+
+Expected (in seconds): 12.49.
+
+Got: (15.006+14.778+14.991)/3 = 14.92.
+
+\subsubsection*{Single log, local log, local and remote disks}
+
+Expected: 12.38.
+
+Got: (14.581+14.931+14.717)/3 = 14.74.
+
+\subsubsection*{Mirrored log, local and remote disks}
+
+Expected: 12.56.
+
+Got: (15.071+14.658+14.755)/3 = 14.82.
+
+In each case the simulated environment had an acceptable difference to the real
+one.
+
 \subsection{Conclusions}
 
 \begin{itemize}
