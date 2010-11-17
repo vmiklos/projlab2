@@ -1,4 +1,4 @@
-From b2be555522e576a1d933794f528757292d209bc8 Mon Sep 17 00:00:00 2001
+From 02c399b2171dec66d7c014caa1efbc58c0ba8ee1 Mon Sep 17 00:00:00 2001
 From: Miklos Vajna <vmiklos@vmiklos.hu>
 Date: Sat, 25 Sep 2010 17:16:11 +0200
 Subject: [PATCH] dm-mirror: allow setting the default mirror
@@ -8,10 +8,10 @@ Subject: [PATCH] dm-mirror: allow setting the default mirror
  1 files changed, 35 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/md/dm-raid1.c b/drivers/md/dm-raid1.c
-index 0480708..47797a5 100644
+index 318899e..b746b0c 100644
 --- a/drivers/md/dm-raid1.c
 +++ b/drivers/md/dm-raid1.c
-@@ -1846,31 +1846,47 @@ static void mirror_resume(struct dm_target *ti)
+@@ -1845,31 +1845,47 @@ static void mirror_resume(struct dm_target *ti)
  /* Set round robin ios via message. */
  static int mirror_message(struct dm_target *ti, unsigned argc, char **argv)
  {
