@@ -609,6 +609,26 @@ Same here (not possible to change parameters), the results: 11.706, 12.996, 12.4
 
 The results: 12.337, 12.476, 12.896; average: 12.56.
 
+\subsection{Read speed in real-life environment}
+
+I repeated the read speed tests in real-life environment as well. The amount of
+read data is still 2MB, the results are in seconds:
+
+\begin{center}
+\begin{table}[H]
+\centering
+\begin{tabular}{| l | l | l | l | l |}
+\hline
+Type & m1 (s) & m2 (s) & m3(s) & avg (s) \\ \hline
+Default (RR, n=128) & 2.518 & 0.993 & 2.049 & 1.85 \\
+Local only & 0.058 & 0.043 & 0.044 & 0.04 \\
+Remote only & 3.771 & 3.465 & 3.349 & 3.52 \\
+\hline
+\end{tabular}
+\caption{Mirror read speed of 2MB data in real-life environment}
+\end{table}
+\end{center}
+
 \subsection{Validating our model}
 
 In this subsection, I want to proof that our model to represent network delays
