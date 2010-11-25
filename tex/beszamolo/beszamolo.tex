@@ -18,8 +18,8 @@
 \usepackage{fullpage}
 %\usepackage{showkeys} % \label{} kiírása \ref{}hez
  
-%\let\stdsection\section
-%\renewcommand\section{\clearpage\stdsection}
+\let\stdsection\section
+\renewcommand\section{\clearpage\stdsection}
 \begin{document}
 \onehalfspacing
 \begin{center}
@@ -101,7 +101,47 @@ direction.
 
 \section{Background}
 
-Postponed: comparison of dm-mirror vs. md-mirror.
+Most project laboratory specialized in dependable system design focus on making
+a system more fault-tolerant, robust and reliable. This paper is not an
+exception, though in addition to those goals, I care about performance a lot,
+too.
+
+High-level projects take I/O as a black box, and build something on top of it,
+a typical example is a 3-layer application with a database, business logic and
+presentation layer. This project focuses on I/O directly, without showing a
+real-life benefit for the optimizations I made, partly because almost anything
+on top of it is affected.
+
+A part of making a system robust is to add redundancy to it - and this applies
+to I/O as well. When adding redundancy to the I/O layer, the simplest method is
+to use a mirror. A mirror can be a hardware or a software one. Given that
+hardware mirror implementations usually are black boxes, I focus on software
+mirror, and to be exact: the software mirror support of the Linux kernel, whose
+source code can be freely modified and available without any charge.
+
+Software mirror has two implementations in the Linux kernel:
+
+\begin{itemize}
+\item md-mirror is \emph{the} software mirror implementation most system
+administrator aware of. It is separated from the device-mapper subsystem and it
+is considered quite mature in the industry. Compared to dm-mirror, of course it
+has missing features, for example it's not possible to resize the partitions
+directly. One common workaround is to use md-mirror on top of linear logical
+volumes.
+\item dm-mirror on the other hand is a great vision: implement a software
+mirror in the device-mapper framework, and take advantage of the framework's
+already available features: the possibility to resize, crypt, and generally
+modify volumes in a more comfortable way, compared to classic DOS partitions.
+\end{itemize}
+
+The problem in practice with dm-mirror is that it's less tested, it's less
+actively developed, and it has problems which can be solved by even someone who
+never touched kernel code before.
+
+That's where I began the work. In the rest of this report I describe various
+problems I found in connection with dm-mirror, present the implementation of
+the fixes for some of those problems, perform measurements to justify my
+results and finally point out possible future directors of related work.
 
 \section{The problems of dm-mirror}
 
