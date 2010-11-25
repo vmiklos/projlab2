@@ -3056,3 +3056,18 @@ Next week I want to extract the RR implementation from
 dm-raid1.c::choose_mirror(), so that the user will be able to choose the
 algorithm using dmsetup. Once this is done, I could start developing a weighted
 RR implementation.
+
+== 12th week
+
+=== Completed tasks
+
+- added background chapter to the report
+- added section: motivation of measurements
+- added section: why measurements both in real-life and in simulated invironments
+- explained why the long measurement section is necessary
+- explained why simualted results are shown first, then real-life
+
+=== Still pending
+
+- ask a friend to review the style of the report (I asked someone, but no reply
+  yet - probably will happen till next week)

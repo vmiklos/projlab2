@@ -99,6 +99,47 @@ different performance characteristics.
 All my steps aim to converge the design and development dm-mirror in that
 direction.
 
+My motivation on doing measurements after the implementation is that the point
+of those patches are to improve performance. Optimizing something only worths
+it in case we optimize a bottleneck of a system and we can justify that we
+achieved improved performance after applying the changes in question. Also,
+given measurement results highly depend on various conditions, I took it
+seriously to do my best to document most of the parameters on which the outcome
+depends on. This is the reason why you can find a dedicated chapter later in
+this report about measurements exclusively.
+
+The measurements were done both in real-life and simulated environments. Both
+are important to me:
+
+\begin{itemize}
+\item Real-life is what matters to end-users. Anything else is about to help
+getting better results in real situations.
+\item On the other hand, we can massively control various environment
+parameters in simulated environments, which allows us to understand the system
+better.
+\end{itemize}
+
+My approach here is to apply the idea of the model driven software development:
+I saw the initial problem in real environment, I tried to make a simulated
+environment, where I can reproduce the results and control parameters to point
+out interesting effects and ignore the uninteresting ones, finally I validate
+the model and apply the conclusions to the real-life situation.
+
+If you look at the table of contents, you can see the measurement section is
+quite long. That's not an accident, the results are explained in such a detail
+in order to justify that the model I constructed is valid and parameters of the
+measures are not subject of intentional distortion.
+
+Also, you can see simulated results are detailed first. The reason for this is
+that I first had to try different values of different parameters first to
+understand the model of the system, and once I understood it, I did the
+real-life measures to make sure the model I constructed is valid.
+
+To give a summarized result before I detail each step and setup is that in some
+conditions the read speed of a dm-mirror can be made about 14 times faster
+after applying my changes, compared to the unpatched kernel. Please see the
+section titled \emph{Read speed} for the precise details.
+
 \section{Background}
 
 Most project laboratory specialized in dependable system design focus on making
@@ -681,7 +722,8 @@ parameters and compared the results.
 I measured the ICMP echo request response time of the remote \emph{sy.ulx.hu}
 machine and of the virtual \emph{iscsitarget}.
 
-The result of the differences: (28.8+31.2+32.1)/3-(2.12+0.459+0.358)/3 = 29.73ms.
+The result of the differences: (28.8+31.2+32.1)/3-(2.12+0.459+0.358)/3 =
+29.73ms.
 
 \subsubsection*{The bandwidth}
 
