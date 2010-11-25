@@ -3063,9 +3063,9 @@ RR implementation.
 
 - added background chapter to the report
 - added section: motivation of measurements
-- added section: why measurements both in real-life and in simulated invironments
+- added section: why measurements both in real-life and in simulated environments
 - explained why the long measurement section is necessary
-- explained why simualted results are shown first, then real-life
+- explained why simulated results are shown first, then real-life
 - renamed chapters about read/write in simulated environment (if i were at it,
   renamed 'what to work on next' to 'future work' to be more professional as
   well)
@@ -3073,12 +3073,13 @@ RR implementation.
   expected results.
 - Read speed in simulated environment: expand the section about why tc
   simulates correct delay
+- my idea: added scripts from both virtual machines before they get lost.
 
 === Future ideas from Ivan
 
 - dm-multipath for the "sdf returns back as sdg when using iSCSI" problem
   (http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/DM_Multipath/index.html[reference])
-- extend the functtionality of the log device: current it's used during mirror
+- extend the functionality of the log device: current it's used during mirror
   creation (when it's not yet in sync but it's already written) + across
   reboots; it would be great to make it used during transient errors while
   writing as well.
@@ -3088,3 +3089,4 @@ RR implementation.
 - ask a friend to review the style of the report (I asked someone, but no reply
   yet - probably will happen till next week)
 - weighted RR; no progress this week on that area, since I ran out of time again.
+- for next week: slides for a 10-minute presentation
