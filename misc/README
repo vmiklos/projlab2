@@ -3066,6 +3066,9 @@ RR implementation.
 - added section: why measurements both in real-life and in simulated invironments
 - explained why the long measurement section is necessary
 - explained why simualted results are shown first, then real-life
+- renamed chapters about read/write in simulated environment (if i were at it,
+  renamed 'what to work on next' to 'future work' to be more professional as
+  well)
 
 === Still pending
 

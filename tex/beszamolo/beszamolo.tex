@@ -138,7 +138,8 @@ real-life measures to make sure the model I constructed is valid.
 To give a summarized result before I detail each step and setup is that in some
 conditions the read speed of a dm-mirror can be made about 14 times faster
 after applying my changes, compared to the unpatched kernel. Please see the
-section titled \emph{Read speed} for the precise details.
+section titled \emph{Read speed in simulated environment} for the precise
+details.
 
 \section{Background}
 
@@ -319,7 +320,7 @@ problems can be simply simulated with a slow network bandwidth. So a good
 approach is to control the network delay and the bandwidth available, and that
 should cover the other aspects.
 
-\subsection{Read speed}
+\subsection{Read speed in simulated environment}
 
 First I checked the read time of a 2MB-sized file without network latency and
 with 200ms delay over an iSCSI device node. I following table and chart
@@ -396,7 +397,7 @@ delay) is slower than a remote read without delay, we expected that. Also,
 reading from remote with delay is slower than reading from local and remote
 (what RR does) as well, so the results show what we would predict.
 
-\subsection{Write speed}
+\subsection{Write speed in simulated environment}
 
 First I measured write speed with different network bandwidth available. In this case no LVM technique was involved, I used plain scp to copy data projlab2 to iscsitarget:
 
@@ -778,7 +779,7 @@ local leg, whenever possible. And this is basically what my modification in the
 dm-mirror driver does - even if it's a small modification, it may cause radical
 speedups in some situations.
 
-\section{What to work on next}
+\section{Future work}
 
 I basically have three ideas on where could I continue:
 
