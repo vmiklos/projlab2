@@ -825,23 +825,35 @@ executed on startup any time, which is a bit ugly.
 
 \lstset{numbers=left, numberstyle=\tiny, basicstyle=\ttfamily, breaklines=true, frame=single, tabsize=2}
 
-\subsection{Allow setting ios count to 0}
+\subsection*{Allow setting ios count to 0}
 
 \lstinputlisting{../../patches/0001-dm-mirror-allow-setting-ios-count-to-0.patch}
 
-\subsection{Allow setting the default mirror}
+\subsection*{Allow setting the default mirror}
 
 \lstinputlisting{../../patches/0002-dm-mirror-allow-setting-the-default-mirror.patch}
+
+\section{Scripts to test read and write speed}
+
+These scripts were used on the \emph{projlab2} node.
+
+\subsection*{Script to measure read speed}
+
+\lstinputlisting{../../scripts/test.sh}
+
+\subsection*{Script to measure write speed}
+
+\lstinputlisting{../../scripts/test-write.sh}
 
 \section{Scripts to simulate network parameters}
 
 These scripts were used on the \emph{iscsitarget} node.
 
-\subsection{Script to add network latency}
+\subsection*{Script to add network latency}
 
 \lstinputlisting{../../scripts/delay.sh}
 
-\subsection{Script to limit the network bandwidth available}
+\subsection*{Script to limit the network bandwidth available}
 
 \lstinputlisting{../../scripts/limit.sh}
 
