@@ -3069,8 +3069,22 @@ RR implementation.
 - renamed chapters about read/write in simulated environment (if i were at it,
   renamed 'what to work on next' to 'future work' to be more professional as
   well)
+- Validating our model: added name of the section from where I copied the
+  expected results.
+- Read speed in simulated environment: expand the section about why tc
+  simulates correct delay
+
+=== Future ideas from Ivan
+
+- dm-multipath for the "sdf returns back as sdg when using iSCSI" problem
+  (http://docs.redhat.com/docs/en-US/Red_Hat_Enterprise_Linux/6/html/DM_Multipath/index.html[reference])
+- extend the functtionality of the log device: current it's used during mirror
+  creation (when it's not yet in sync but it's already written) + across
+  reboots; it would be great to make it used during transient errors while
+  writing as well.
 
 === Still pending
 
 - ask a friend to review the style of the report (I asked someone, but no reply
   yet - probably will happen till next week)
+- weighted RR; no progress this week on that area, since I ran out of time again.
