@@ -30,8 +30,17 @@
 \item A dm-mirror egy tipikus 3 rétegû architektúra legalsó szintje \emph{alatt} helyezkedik el
 \item Egy szoftveres tükrözési megoldás a Linux kernelben
 \item Egyedülálló tulajdonsága, hogy a device-mapper keretrendszerre épül (logikai kötetkezelés)
-\item Probléma: szuboptimális teljesítmény ha a fizikai diszkek elérési
-sebessége nem azonos
+\item Kezdeti probléma: szuboptimális teljesítmény ha a fizikai diszkek elérési sebessége nem azonos
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Motiváció}
+\begin{itemize}
+\item A lassú I/O könnyen válhat egy szolgáltatás szûk keresztmetszetévé
+\item Szoftveres türközés: így a tükrözõ algoritmus könnyen módosítható
+\item Linux kernel része: szabadon hozzáférhetõ és módosítható
+\item Az elkészült munkát hoszútávon cél visszajuttatni a kernelbe
 \end{itemize}
 \end{frame}
 
