@@ -23,15 +23,17 @@
 
 \begin{frame}
 \frametitle{Bevezetõ}
-%\begin{figure}[H]
-%\includegraphics[width=47mm,keepaspectratio]{model.eps}
-%\end{figure}
+\begin{columns}[c]
+\column{2.2in}
 \begin{itemize}
 \item A dm-mirror egy tipikus 3 rétegû architektúra legalsó szintje \emph{alatt} helyezkedik el
 \item Egy szoftveres tükrözési megoldás a Linux kernelben
 \item Egyedülálló tulajdonsága, hogy a device-mapper keretrendszerre épül (logikai kötetkezelés)
 \item Kezdeti probléma: szuboptimális teljesítmény ha a fizikai diszkek elérési sebessége nem azonos
 \end{itemize}
+\column{0.8in}
+\framebox{\includegraphics[width=18mm,keepaspectratio]{layers.eps}}
+\end{columns}
 \end{frame}
 
 \begin{frame}
@@ -54,7 +56,49 @@
 \end{itemize}
 \end{frame}
 
-% fixme: megoldott feladatok, meresek
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{dm-mirror kipróbálása, írási / olvasási teljesítmény mérése}
+% fixme: architektura abra
+\begin{itemize}
+\item Különbözõ diszkek esetén: lassú diszk szimulálása iSCSI-val
+\item Hálózaton késleltetés és/vagy sávszélesség-korlátozás szimulálása
+\item Tükör komponensei: 2 adat láb, 1 vagy 2 naplózó láb
+\item Ezek lehetnek helyben vagy távoli gépen
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{dm-mirror hibatûrésének tesztelése}
+\begin{itemize}
+\item Írás diszkre mikor a tükör létrehozása még folyamatban van
+\item Írás diszkre közvetlenül a rendszer újraindítása után
+\item Írás / olvasás az iSCSI diszk elérhetetlensége esetén
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{Teszt eszközök validálása}
+\begin{itemize}
+\item A tc eszköz használata forgalomszabályozásra
+\item Sávszélesség-korlátozás és hálózati késleltetés
+\item Valós WAN környezet paramétereinek mérése
+\item Szimulált környezetben validálás: azonos olvasás / írás eredményeket kapunk?
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{Olvasási teljesítmény javítása}
+% ábra: x-szeres javulás
+\begin{itemize}
+\item Eredetileg: olvasás esetén Round-Robin algoritmus váltogat a fizikai diszkek között
+\item A váltás gyakorisága állítható
+\item Javítás: a váltás kikapcsolható, a használt diszk kézzel felülbírálható
+\end{itemize}
+\end{frame}
 
 \begin{frame}
 \frametitle{Jövõbeli lehetõségek}
