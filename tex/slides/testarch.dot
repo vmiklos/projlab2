@@ -1,0 +1,8 @@
+digraph G {
+        node [shape=record]
+        m0 [label="{projlab2 \l|- iSCSI initiator\l- a dm-mirror itt fut\l}"]
+        m1 [label="{iscsitarget \l|- iSCSI target\l- sávszél. korlátozás\l- hálózati késleltetés\l}"]
+	rankdir=LR
+        m0 -> m1 [label="írás"]
+        m1 -> m0 [label="olvasás"]
+}
