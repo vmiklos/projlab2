@@ -44,4 +44,36 @@
 \end{itemize}
 \end{frame}
 
+\begin{frame}
+\frametitle{Feladat leírása}
+\begin{itemize}
+\item dm-mirror kipróbálása, írási / olvasási teljesítmény mérése
+\item dm-mirror hibatûrésének tesztelése
+\item Mérési teszt környezet kialakítása, a teszt eszközök validálása
+\item Olvasási teljesítmény javítása abban az esetben, ha a diszkek elérési sebessége különbözik
+\end{itemize}
+\end{frame}
+
+% fixme: megoldott feladatok, meresek
+
+\begin{frame}
+\frametitle{Jövõbeli lehetõségek}
+\begin{itemize}
+\item Súlyozott Round-Robin olvasáskor
+\item A tükör naplózó lába nincs kihasználva abban az esetben ha az egyik adat
+láb elérhetetlenné válik
+\item Olvasási algoritmusok modularizálása
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Összefoglalás}
+\begin{itemize}
+\item A dm-mirror egy szoftveres tükrözési megoldás a Linux kernelben
+\item Mind teljesítmény, mind hibatûrés szempontjából van mit javítani rajta
+\item Elkészült egy teszt környezet, mely valósan tud szimulálni problémásan elérhetõ diszkeket
+\item Elkészült egy megoldás, mellyel a tükör olvasási teljesítménye
+nagymértékben megnövelhetõ bizonyos körülmények között
+\end{itemize}
+\end{frame}
 \end{document}
