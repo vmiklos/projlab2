@@ -1,0 +1,173 @@
+\documentclass{beamer}
+\author{Vajna Miklós}
+
+\setbeamertemplate{background canvas}[vertical shading][bottom=white,top=structure.fg!25]
+
+\usetheme{Warsaw}
+\setbeamertemplate{headline}{}
+\setbeamertemplate{footline}[page number]
+\setbeamersize{text margin left=0.5cm}
+  
+\usepackage[magyar, english]{babel}
+
+\usepackage{times}
+\usepackage[latin2]{inputenc}
+\usepackage[T1]{fontenc}
+
+\begin{document}
+
+\title{Modellek összehasonlítása és egyesítése}
+\date{2010. május 13.}
+
+\frame{\titlepage}
+
+\begin{frame}
+\frametitle{Bevezetõ}
+\begin{figure}[H]
+\includegraphics[width=47mm,keepaspectratio]{model.eps}
+\end{figure}
+\begin{itemize}
+\item A modellvezérelt szoftverfejlesztés egyik ma aktuális kérdése
+\item Forráskódok összehasonlításához és egyesítéséhez (merge) már kifinomult eszközök állnak rendelkezésre
+\item A modellek összehasonlítása sokkal összetettebb feladat
+\item Általános, bármilyen metamodellel mûködõ eszköz jelenleg nem érhetõ el
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Motiváció}
+\begin{figure}[H]
+\includegraphics[width=27mm,keepaspectratio]{motivacio2.eps}
+\end{figure}
+\begin{itemize}
+\item Ericsson: a gyakorlatban használható modell egyesítésre szükség van
+\item Jelenleg a legtöbb esetben a modellek egyesítése kézzel történik (egyesítõ szoba)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Feladat leírása}
+\begin{itemize}
+\item Megismerkedni a modellek összehasonlításának és egyesítésének nehézségeivel
+\item Tanulmányozni a probléma megoldásához használható algoritmusokat
+\item Egy konkrét algoritmust portolni / implementálni a VIATRA2 rendszerben
+\item Tesztelhetõséget lehetõvé tenni
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{A probléma megoldásához használható algoritmusok tanulmányozása}
+Jelenleg elérhetõ, nem VIATRA-n mûködõ algoritmusok feltérképezése:
+\begin{itemize}
+\item Gráfok összehasonlítására szolgáló, izomorfiát vizsgáló algoritmusok
+\item UML modelleket összehasonlító eszközök
+\item Fák összehasonlítását megvalósító megoldások
+\item Egy-egy megoldás (Odyssey-VCS, diffxml) részletesebb megismerése
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{VIATRA-alapú megoldás elkészítése}
+\begin{itemize}
+\item A diffxml által használt FMES algoritmus átültetése VIATRA-ra
+\item Az algoritmus egy eleme az a döntéshozás, mely eldönti, hogy két elem ugyanaz-e különbözõ modellekben
+\item Itt figyelembe lehetne venni az XML sémát, jelenleg ez nincs így
+\item Az algoritmus a modellben beszúrásokat, áthelyezéseket, törléseket detektál
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{A Fast Match / Edit Script algoritmus mûködése (egyszerûsített)}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes2.eps}
+
+Megkeressük a fa leveleit
+\end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes3.eps}
+
+Az azonos úton elérhetõek közül összekötjük azokat, melyek azonosak
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{A Fast Match / Edit Script algoritmus mûködése (egyszerûsített)}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes4.eps}
+
+A maradék levelek közül összekötjük azokat, melyek nem azonos úton érhetõek el, de azonosak
+\end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes5.eps}
+
+Iteratívan ismételjük a fa gyökeréig az elõzõ 3 mûveletet: levelek keresése
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{A Fast Match / Edit Script algoritmus mûködése (egyszerûsített)}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes6.eps}
+
+Azonos úton elérhetõ elemek párosítása
+\end{figure}
+\begin{figure}[H]
+\centering
+\includegraphics[width=40mm,keepaspectratio]{fmes/fmes7.eps}
+
+Más úton elérhetõ elemek párosítása
+\end{figure}
+\end{frame}
+
+\begin{frame}
+\frametitle{Megoldott feladatok}
+\framesubtitle{XML importer}
+\begin{itemize}
+\item Az FMES teszteléséhez szükség volt teszt modellekre
+\item A diffxml projekt már rendelkezett egy ilyen tesztgyûjteménnyel
+\item A gyûjtemény elemei XML fájlok, ehhez kell egy VIATRA importer
+\item Importer séma nélküli XML-ekhez
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Tesztelési környezet}
+\begin{itemize}
+\item Eclipse 3.5
+\item VIATRA2 SVN (r1334)
+\item diffxml 0.95B
+\item Kézi tesztelés (runtime eclipse, importálás, model comparator futtatása)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Jövõbeli lehetõségek}
+\begin{itemize}
+\item XML importer: Séma megkövetelése, így a VIATRA-beli entitásokhoz típusok lennének rendelhetõek
+\item Csak a comparator került megvalósításra, ennek kimenete alapján egy modell egyesítõ eszközt is lehetne készíteni
+\item A két entitást összehasonlító elem finomítható lenne
+\item Az FMES fákon dolgozik, egyéb gráf-összehasonlító algoritmusok is elérhetõek (pl. Groove-ból)
+\end{itemize}
+\end{frame}
+
+\begin{frame}
+\frametitle{Összefoglalás}
+\begin{itemize}
+\item A modellek összehasonlítása és egyesítése a modellvezérelt fejlesztés ma egyik aktuális kérdése
+\item Részmegoldások elérhetõek: Odyssey-VCS, diffxml, Groove, stb.
+\item A labor keretében elkészült egy általános XML importer és egy FMES-alapú modell összehasonlító a VIATRA rendszerhez.
+\item Számos jövõbeli lehetõség mert fel a félév során, melyek még megvalósításra várnak
+\end{itemize}
+\end{frame}
+
+\end{document}
