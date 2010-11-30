@@ -1,8 +1,0 @@
-digraph G {
-        node [shape=record]
-        m0 [label="{projlab2 \l|- dm-mirror\l- sdb (helyi disk)\l- sdc (helyi napló)\l}"]
-        m1 [label="{iscsitarget \l|- sdf1 (távoli disk)\l- sdf2 (távoli napló)\l}"]
-	rankdir=LR
-        m0 -> m0 [label="írás"]
-        m0 -> m1 [label="írás"]
-}
