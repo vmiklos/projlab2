@@ -3103,3 +3103,12 @@ RR implementation.
 - In-person meeting with Akos:
 
   * Comments on slides - various issues needs fixing (missing unit from figure, more figures, etc.)
+
+== 14th week
+
+Updates slides:
+
+- 2th slide: resolve the dm-mirror abbreviation
+- 5th slide: one more figure, stacked view instead of enumeration
+- 6th slide: document the vmware, rhel version, state what did we measure (amount of data, operation type)
+- 8th slide: remove unreadable legend, state unit of numbers
