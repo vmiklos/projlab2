@@ -3090,3 +3090,15 @@ RR implementation.
   yet - probably will happen till next week)
 - weighted RR; no progress this week on that area, since I ran out of time again.
 - for next week: slides for a 10-minute presentation
+
+== 13th week
+
+- I wrote the slides for the presentation.
+- In-person meeting with Ivan:
+
+  * ACK for slides, we agreed, that once I'm done with the exams I'll write to dm-devel@ to ask if our future idea list makes sense.
+  * It's still pending when may I send my changes back - I should not do so before I get permission from ULX on this.
+
+- In-person meeting with Akos:
+
+  * Comments about slides - various issues needs fixing (missing unit from figure, more figures, etc.)
