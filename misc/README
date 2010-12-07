@@ -3096,9 +3096,10 @@ RR implementation.
 - I wrote the slides for the presentation.
 - In-person meeting with Ivan:
 
-  * ACK for slides, we agreed, that once I'm done with the exams I'll write to dm-devel@ to ask if our future idea list makes sense.
+  * ACK for slides.
+  * We agreed, that once I'm done with the exams I'll write to dm-devel@ to ask if our future idea list makes sense.
   * It's still pending when may I send my changes back - I should not do so before I get permission from ULX on this.
 
 - In-person meeting with Akos:
 
-  * Comments about slides - various issues needs fixing (missing unit from figure, more figures, etc.)
+  * Comments on slides - various issues needs fixing (missing unit from figure, more figures, etc.)
