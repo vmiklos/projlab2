@@ -1,8 +1,15 @@
 digraph G {
         node [shape=record]
-        m0 [label="{projlab2 \l|- a dm-mirror itt fut\l- iSCSI initiator\l}"]
-        m1 [label="{iscsitarget \l|- iSCSI target\l- sávszél. korlátozás\l- hálózati késleltetés\l}"]
+	subgraph cluster0 {
+		label="projlab2"
+		m0 [label="{{dm-mirror|iSCSI initiator}}"]
+	}
+	subgraph cluster1 {
+		label="iscsitarget"
+		m1 [label="{{iSCSI target|sávszél. korlátozás|hálózati késleltetés}}"]
+	}
+	compound=true
 	rankdir=LR
-        m0 -> m1 [label="írás"]
-        m1 -> m0 [label="olvasás"]
+        m0 -> m1 [label="írás", ltail=cluster0, lhead=cluster1]
+        m1 -> m0 [label="olvasás", ltail=cluster1, lhead=cluster0]
 }
