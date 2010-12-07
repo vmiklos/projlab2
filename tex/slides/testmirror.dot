@@ -1,0 +1,11 @@
+digraph G {
+	lv [label="logikai kötet"]
+	vg [label="kötetcsoport"]
+	lv -> vg[dir=back]
+	pv0 [label="fizikai kötet"]
+	vg -> pv0 [label="1. tükör láb",dir=back]
+	pv1 [label="fizikai kötet"]
+	vg -> pv1 [label="2. tükör láb",dir=back]
+	pv2 [label="fizikai kötet"]
+	vg -> pv2 [label="napló",dir=back]
+}
